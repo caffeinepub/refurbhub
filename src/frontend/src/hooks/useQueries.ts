@@ -52,9 +52,11 @@ export function useAddProduct() {
       const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
       if (!actor || !isConnected) {
         toast.error(
-          "Please connect with Internet Identity first to add products",
+          "Please log in with Internet Identity in the admin panel first",
         );
-        throw new Error("Not connected — Internet Identity required");
+        throw new Error(
+          "Please log in with Internet Identity in the admin panel first",
+        );
       }
       await actor.addProduct(
         data.name,
@@ -83,9 +85,11 @@ export function useUpdateProduct() {
       const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
       if (!actor || !isConnected) {
         toast.error(
-          "Please connect with Internet Identity first to update products",
+          "Please log in with Internet Identity in the admin panel first",
         );
-        throw new Error("Not connected — Internet Identity required");
+        throw new Error(
+          "Please log in with Internet Identity in the admin panel first",
+        );
       }
       await actor.updateProduct(
         data.id,
@@ -118,9 +122,11 @@ export function useDeleteProduct() {
       const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
       if (!actor || !isConnected) {
         toast.error(
-          "Please connect with Internet Identity first to delete products",
+          "Please log in with Internet Identity in the admin panel first",
         );
-        throw new Error("Not connected — Internet Identity required");
+        throw new Error(
+          "Please log in with Internet Identity in the admin panel first",
+        );
       }
       await actor.deleteProduct(id);
     },
@@ -178,17 +184,56 @@ export function useUpdateOrderStatus() {
   });
 }
 
+/* ─── Admin Products (no sample fallback — real canister state) ─── */
+
+export function useAdminProducts() {
+  const { actor, isFetching } = useActor();
+  return useQuery<ProductWithMarketPrice[]>({
+    queryKey: ["adminProducts"],
+    queryFn: async () => {
+      if (!actor) return [];
+      const result = await actor.getProducts();
+      return result as ProductWithMarketPrice[];
+    },
+    enabled: !isFetching,
+    staleTime: 0, // always fresh for admin
+  });
+}
+
 /* ─── Auth / Admin ─── */
 
 export function useIsAdmin() {
   const { actor, isFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
   return useQuery<boolean>({
     queryKey: ["isAdmin"],
     queryFn: async () => {
-      if (!actor) return false;
+      if (!actor || !isConnected) return false;
       return actor.isCallerAdmin();
     },
-    enabled: !isFetching,
+    enabled: !isFetching && isConnected,
+  });
+}
+
+export function useActivateAdmin() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Not connected to backend");
+      const token = (import.meta.env.VITE_ADMIN_TOKEN as string) ?? "";
+      // _initializeAccessControlWithSecret is defined in the backend mixin
+      // but may not be in the generated d.ts — cast through unknown to call it
+      const actorAny = actor as unknown as {
+        _initializeAccessControlWithSecret: (secret: string) => Promise<void>;
+      };
+      await actorAny._initializeAccessControlWithSecret(token);
+    },
+    onSuccess: () => {
+      sessionStorage.setItem("admin_activated", "true");
+      qc.invalidateQueries({ queryKey: ["isAdmin"] });
+    },
   });
 }
 

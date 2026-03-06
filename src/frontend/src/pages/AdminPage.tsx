@@ -58,13 +58,20 @@ import {
   ShoppingBag,
   Trash2,
   Upload,
+  UserCheck,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "../backend.d";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
+  useActivateAdmin,
   useAddProduct,
+  useAdminProducts,
   useDeleteProduct,
+  useIsAdmin,
   useOrders,
   useProducts,
   useUpdateOrderStatus,
@@ -349,7 +356,7 @@ function ProductFormDialog({
 }
 
 function ProductsTab() {
-  const { data: products = [], isLoading } = useProducts();
+  const { data: products = [], isLoading } = useAdminProducts();
   const addProduct = useAddProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -1349,7 +1356,7 @@ function extractProductInfo(text: string): ExtractedProduct {
 }
 
 function AIAssistantTab() {
-  const { data: products = [] } = useProducts();
+  const { data: products = [] } = useAdminProducts();
   const addProduct = useAddProduct();
   const updateProduct = useUpdateProduct();
 
@@ -1910,27 +1917,369 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
+/* ─── II Connection Step ─── */
+
+function IIConnectStep({ onDone }: { onDone: () => void }) {
+  const { identity, login, loginStatus } = useInternetIdentity();
+  const activateAdmin = useActivateAdmin();
+  const { data: isAdmin, refetch: refetchIsAdmin } = useIsAdmin();
+  const [activationState, setActivationState] = useState<
+    "idle" | "activating" | "success" | "error"
+  >("idle");
+  const [activationError, setActivationError] = useState("");
+  const isLoggedIn = !!identity && !identity.getPrincipal().isAnonymous();
+  const isLoggingIn = loginStatus === "logging-in";
+  const activateMutate = activateAdmin.mutate;
+
+  const runActivation = useCallback(() => {
+    setActivationState("activating");
+    activateMutate(undefined, {
+      onSuccess: async () => {
+        await refetchIsAdmin();
+        setActivationState("success");
+        setTimeout(() => onDone(), 1500);
+      },
+      onError: (err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        // "already initialized" → they're already admin, proceed
+        if (
+          msg.toLowerCase().includes("already") ||
+          msg.toLowerCase().includes("initialized")
+        ) {
+          sessionStorage.setItem("admin_activated", "true");
+          setActivationState("success");
+          setTimeout(() => onDone(), 1500);
+        } else {
+          setActivationState("error");
+          setActivationError(msg || "Activation failed. Please try again.");
+        }
+      },
+    });
+  }, [activateMutate, refetchIsAdmin, onDone]);
+
+  // Once logged in, auto-trigger activation
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    if (activationState !== "idle") return;
+    // If already admin or previously activated, go straight to dashboard
+    if (
+      isAdmin === true ||
+      sessionStorage.getItem("admin_activated") === "true"
+    ) {
+      setActivationState("success");
+      const t = setTimeout(() => onDone(), 800);
+      return () => clearTimeout(t);
+    }
+    // Otherwise try to activate
+    runActivation();
+  }, [isLoggedIn, isAdmin, activationState, onDone, runActivation]);
+
+  return (
+    <div
+      data-ocid="admin.ii_connect_gate"
+      className="min-h-screen flex items-center justify-center px-4"
+      style={{
+        background:
+          "linear-gradient(135deg, #0B2A4A 0%, #0f3a63 50%, #091e33 100%)",
+      }}
+    >
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 40% at 50% 30%, rgba(30,94,255,0.15) 0%, transparent 70%)",
+        }}
+      />
+      <div className="relative w-full max-w-md">
+        <div
+          className="rounded-2xl p-8 sm:p-10 text-center"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            boxShadow:
+              "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(30,94,255,0.08)",
+            backdropFilter: "blur(20px)",
+          }}
+        >
+          {/* Brand */}
+          <div className="inline-flex items-center gap-2 mb-6">
+            <span
+              className="text-2xl font-bold tracking-tight"
+              style={{ color: "#ffffff" }}
+            >
+              Refurb{" "}
+              <span
+                style={{ color: "#0B2A4A", WebkitTextStroke: "1px #4a9eff" }}
+              >
+                Hub
+              </span>
+            </span>
+          </div>
+
+          {/* State: not logged in */}
+          {!isLoggedIn && activationState === "idle" && (
+            <>
+              <div
+                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(30,94,255,0.2), rgba(30,94,255,0.1))",
+                  border: "1px solid rgba(30,94,255,0.3)",
+                }}
+              >
+                <UserCheck className="h-8 w-8" style={{ color: "#4a9eff" }} />
+              </div>
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: "#ffffff", letterSpacing: "-0.02em" }}
+              >
+                Connect Your Account
+              </h2>
+              <p
+                className="text-sm mb-6"
+                style={{ color: "rgba(255,255,255,0.55)" }}
+              >
+                Log in with Internet Identity to activate admin access and save
+                products to the backend. This only needs to be done once.
+              </p>
+              <button
+                type="button"
+                data-ocid="admin.ii_login_button"
+                onClick={() => void login()}
+                disabled={isLoggingIn}
+                className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
+                style={{
+                  background: isLoggingIn
+                    ? "rgba(30,94,255,0.5)"
+                    : "linear-gradient(135deg, #1E5EFF, #3b7dff)",
+                  color: "#ffffff",
+                  boxShadow: isLoggingIn
+                    ? "none"
+                    : "0 4px 20px rgba(30,94,255,0.4)",
+                  cursor: isLoggingIn ? "not-allowed" : "pointer",
+                }}
+              >
+                {isLoggingIn ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wifi className="h-4 w-4" />
+                )}
+                {isLoggingIn ? "Connecting..." : "Login with Internet Identity"}
+              </button>
+            </>
+          )}
+
+          {/* State: activating */}
+          {(activationState === "activating" ||
+            (isLoggedIn && activationState === "idle")) && (
+            <>
+              <div
+                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(30,94,255,0.2), rgba(30,94,255,0.1))",
+                  border: "1px solid rgba(30,94,255,0.3)",
+                }}
+              >
+                <Loader2
+                  className="h-8 w-8 animate-spin"
+                  style={{ color: "#4a9eff" }}
+                />
+              </div>
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: "#ffffff" }}
+              >
+                Activating Admin Access
+              </h2>
+              <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+                Registering your account on the backend...
+              </p>
+            </>
+          )}
+
+          {/* State: success */}
+          {activationState === "success" && (
+            <>
+              <div
+                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+                style={{
+                  background: "rgba(34,197,94,0.15)",
+                  border: "1px solid rgba(34,197,94,0.3)",
+                }}
+              >
+                <CheckCircle2
+                  className="h-8 w-8"
+                  style={{ color: "#22c55e" }}
+                />
+              </div>
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: "#ffffff" }}
+              >
+                Admin Access Activated!
+              </h2>
+              <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+                Redirecting to dashboard...
+              </p>
+            </>
+          )}
+
+          {/* State: error */}
+          {activationState === "error" && (
+            <>
+              <div
+                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+                style={{
+                  background: "rgba(239,68,68,0.15)",
+                  border: "1px solid rgba(239,68,68,0.3)",
+                }}
+              >
+                <AlertCircle className="h-8 w-8" style={{ color: "#f87171" }} />
+              </div>
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: "#ffffff" }}
+              >
+                Activation Failed
+              </h2>
+              <p
+                className="text-sm mb-6"
+                style={{ color: "rgba(255,255,255,0.5)" }}
+              >
+                {activationError}
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  data-ocid="admin.ii_retry_button"
+                  onClick={() => {
+                    setActivationState("idle");
+                    setActivationError("");
+                  }}
+                  className="h-10 px-5 rounded-xl font-semibold text-sm"
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: "#ffffff",
+                    cursor: "pointer",
+                  }}
+                >
+                  Retry
+                </button>
+                <button
+                  type="button"
+                  data-ocid="admin.ii_skip_button"
+                  onClick={onDone}
+                  className="h-10 px-5 rounded-xl font-semibold text-sm"
+                  style={{
+                    background: "linear-gradient(135deg, #1E5EFF, #3b7dff)",
+                    color: "#ffffff",
+                    cursor: "pointer",
+                  }}
+                >
+                  Continue Anyway
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+        <p
+          className="text-center text-xs mt-6"
+          style={{ color: "rgba(255,255,255,0.25)" }}
+        >
+          Authorized personnel only
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Admin Status Pill (header badge) ─── */
+
+function AdminStatusPill() {
+  const { identity, login } = useInternetIdentity();
+  const { data: isAdmin } = useIsAdmin();
+  const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
+
+  if (isConnected && isAdmin) {
+    return (
+      <span
+        data-ocid="admin.connected_status"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full"
+        style={{
+          background: "rgba(34,197,94,0.12)",
+          border: "1px solid rgba(34,197,94,0.25)",
+          color: "#16a34a",
+        }}
+      >
+        <span
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ background: "#22c55e" }}
+        />
+        Connected as Admin
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      data-ocid="admin.not_connected_status"
+      onClick={() => void login()}
+      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
+      style={{
+        background: "rgba(234,179,8,0.1)",
+        border: "1px solid rgba(234,179,8,0.25)",
+        color: "#ca8a04",
+        cursor: "pointer",
+      }}
+    >
+      <WifiOff className="w-3.5 h-3.5" />
+      Not Connected — Click to Login
+    </button>
+  );
+}
+
 /* ─── Main AdminPage ─── */
 
 export function AdminPage() {
   const [passwordUnlocked, setPasswordUnlocked] = useState(
     () => sessionStorage.getItem("admin_auth") === "true",
   );
+  const [iiDone, setIiDone] = useState(
+    () =>
+      sessionStorage.getItem("admin_ii_done") === "true" ||
+      sessionStorage.getItem("admin_activated") === "true",
+  );
 
-  // Show password gate first — only auth layer needed
+  const handleIiDone = () => {
+    sessionStorage.setItem("admin_ii_done", "true");
+    setIiDone(true);
+  };
+
+  // Step 1: password gate
   if (!passwordUnlocked) {
     return <PasswordGate onUnlock={() => setPasswordUnlocked(true)} />;
   }
 
+  // Step 2: Internet Identity + admin activation
+  if (!iiDone) {
+    return <IIConnectStep onDone={handleIiDone} />;
+  }
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
-      <div className="mb-6">
-        <h1 className="font-display font-bold text-3xl text-foreground mb-1">
-          Admin Dashboard
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Manage your products and orders
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display font-bold text-3xl text-foreground mb-1">
+            Admin Dashboard
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Manage your products and orders
+          </p>
+        </div>
+        <AdminStatusPill />
       </div>
 
       <Tabs defaultValue="products">
