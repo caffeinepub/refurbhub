@@ -76,6 +76,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "../backend.d";
+import { CAFFEINE_ADMIN_TOKEN } from "../data/adminToken";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useActorStatus,
@@ -2547,10 +2548,19 @@ function IILoginGate() {
 
 function AdminRegistrationGate() {
   const { actor, isFetching: actorFetching, isActorError } = useActorStatus();
-  const [token, setToken] = useState("");
+  // Pre-fill the token input with the known CAFFEINE_ADMIN_TOKEN value
+  const [token, setToken] = useState(CAFFEINE_ADMIN_TOKEN);
   const [tokenError, setTokenError] = useState("");
   const [isActivating, setIsActivating] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showToken, setShowToken] = useState(false);
+  const [tokenCopied, setTokenCopied] = useState(false);
+
+  const copyToken = () => {
+    void navigator.clipboard.writeText(CAFFEINE_ADMIN_TOKEN).then(() => {
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    });
+  };
 
   const handleActivate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -2589,8 +2599,8 @@ function AdminRegistrationGate() {
   return (
     <DarkScreenWrapper>
       {/* Branding */}
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 mb-6">
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center gap-2 mb-5">
           <span
             className="text-2xl font-bold tracking-tight"
             style={{ color: "#ffffff" }}
@@ -2620,9 +2630,88 @@ function AdminRegistrationGate() {
           Activate Admin Access
         </h1>
         <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-          {isActorError
-            ? "Admin token required — paste it below to connect"
-            : "Enter your admin token to unlock the dashboard"}
+          First-time setup — register your Internet Identity as the permanent
+          admin.
+        </p>
+      </div>
+
+      {/* ── Token Reveal Card ── */}
+      <div
+        className="rounded-xl p-4 mb-5"
+        style={{
+          background: "rgba(30,94,255,0.08)",
+          border: "1px solid rgba(30,94,255,0.25)",
+        }}
+        data-ocid="admin.token_reveal_card"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <span
+            className="text-xs font-semibold uppercase tracking-wider"
+            style={{ color: "#4a9eff" }}
+          >
+            Your CAFFEINE_ADMIN_TOKEN
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              data-ocid="admin.token_reveal_toggle"
+              onClick={() => setShowToken((v) => !v)}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: "rgba(255,255,255,0.5)" }}
+              aria-label={showToken ? "Hide token" : "Reveal token"}
+            >
+              {showToken ? (
+                <EyeOff className="h-3.5 w-3.5" />
+              ) : (
+                <Eye className="h-3.5 w-3.5" />
+              )}
+            </button>
+            <button
+              type="button"
+              data-ocid="admin.token_copy_button"
+              onClick={copyToken}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+              style={{
+                background: tokenCopied
+                  ? "rgba(34,197,94,0.15)"
+                  : "rgba(30,94,255,0.15)",
+                border: tokenCopied
+                  ? "1px solid rgba(34,197,94,0.3)"
+                  : "1px solid rgba(30,94,255,0.3)",
+                color: tokenCopied ? "#4ade80" : "#4a9eff",
+              }}
+            >
+              {tokenCopied ? (
+                <>
+                  <CheckCircle2 className="h-3 w-3" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Save className="h-3 w-3" />
+                  Copy
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        <div
+          className="rounded-lg px-3 py-2 font-mono text-xs break-all select-all"
+          style={{
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            color: showToken ? "#e2e8f0" : "transparent",
+            textShadow: showToken ? "none" : "0 0 8px rgba(255,255,255,0.5)",
+            userSelect: "all",
+            letterSpacing: showToken ? "0.05em" : "normal",
+          }}
+          aria-label="Admin token value"
+        >
+          {CAFFEINE_ADMIN_TOKEN}
+        </div>
+        <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.35)" }}>
+          Keep this token private. The first person to use it becomes the
+          permanent admin.
         </p>
       </div>
 
@@ -2630,7 +2719,7 @@ function AdminRegistrationGate() {
       {isActorError && (
         <div
           data-ocid="admin.actor_error_state"
-          className="flex items-start gap-2 text-sm mb-5 p-3 rounded-xl"
+          className="flex items-start gap-2 text-sm mb-4 p-3 rounded-xl"
           style={{
             background: "rgba(234,179,8,0.08)",
             border: "1px solid rgba(234,179,8,0.25)",
@@ -2640,8 +2729,8 @@ function AdminRegistrationGate() {
         >
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            Backend connection failed. This usually means the admin token wasn't
-            found. Paste your token below to reconnect.
+            Backend connection failed. Click "Activate Admin" below to retry
+            with the token shown above.
           </span>
         </div>
       )}
@@ -2658,21 +2747,21 @@ function AdminRegistrationGate() {
             className="text-sm font-medium"
             style={{ color: "rgba(255,255,255,0.7)" }}
           >
-            Admin Token
+            Confirm Token
           </label>
           <div className="relative">
             <input
               id="admin-token"
               data-ocid="admin.token_input"
-              type={showPassword ? "text" : "password"}
+              type="password"
               value={token}
               onChange={(e) => {
                 setToken(e.target.value);
                 if (tokenError) setTokenError("");
               }}
-              placeholder="Paste your Caffeine admin token..."
+              placeholder="Token pre-filled above"
               autoComplete="off"
-              className="w-full h-12 rounded-xl px-4 pr-12 text-sm outline-none transition-all duration-200"
+              className="w-full h-12 rounded-xl px-4 pr-4 text-sm outline-none transition-all duration-200"
               style={{
                 background: "rgba(255,255,255,0.07)",
                 border: tokenError
@@ -2696,20 +2785,6 @@ function AdminRegistrationGate() {
                 }
               }}
             />
-            <button
-              type="button"
-              data-ocid="admin.token_toggle"
-              onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors duration-150"
-              style={{ color: "rgba(255,255,255,0.4)" }}
-              aria-label={showPassword ? "Hide token" : "Show token"}
-            >
-              {showPassword ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </button>
           </div>
 
           {tokenError && (
@@ -2774,8 +2849,8 @@ function AdminRegistrationGate() {
         className="text-center text-xs mt-4"
         style={{ color: "rgba(255,255,255,0.35)" }}
       >
-        You can find this token in your Caffeine platform dashboard under
-        project settings
+        This is a one-time setup. Once registered, future logins go straight to
+        the dashboard.
       </p>
     </DarkScreenWrapper>
   );

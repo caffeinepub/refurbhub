@@ -1,42 +1,36 @@
 # RefurbHub
 
 ## Current State
-The app has a Motoko backend with a full authorization system. The backend exposes:
-- `_initializeAccessControlWithSecret(userSecret)` -- first caller who provides the correct CAFFEINE_ADMIN_TOKEN becomes admin permanently
-- `isCallerAdmin()` -- returns true if caller has admin role
-- `addProduct`, `updateProduct`, `deleteProduct` -- all require admin role
 
-The admin frontend (AdminPage.tsx) has:
-1. A password gate (`Armaan@10`) stored in sessionStorage
-2. After the password gate, product mutations call the backend but fail because no principal has the admin role registered yet -- the `_initializeAccessControlWithSecret` endpoint has never been called
+The app has a full-stack backend (Motoko) + React frontend e-commerce platform. The admin panel at `/admin` uses a 3-step auth flow:
+1. Password gate (`Armaan@10`)
+2. Internet Identity login
+3. Token gate (`AdminRegistrationGate`) — asks the user to paste a "Caffeine admin token"
 
-The `useAddProduct`, `useUpdateProduct`, `useDeleteProduct` hooks check for Internet Identity connection but the admin panel has no UI to trigger II login or self-register as admin.
+The backend `MixinAuthorization.mo` (authorization component) already reads `CAFFEINE_ADMIN_TOKEN` via `Prim.envVar<system>("CAFFEINE_ADMIN_TOKEN")`. If the env var is not set, the canister traps with "CAFFEINE_ADMIN_TOKEN environment variable is not set".
+
+`useActor.ts` (write-protected) calls `_initializeAccessControlWithSecret(adminToken)` on every actor build with the token from `getSecretParameter("caffeineAdminToken")`. When no token is in sessionStorage, it passes `""`, which causes the canister to trap, setting `isActorError = true` and showing the token gate — but users don't know what the token is.
 
 ## Requested Changes (Diff)
 
 ### Add
-- After the password gate is passed, show an "Activate Admin" step if the user is not yet registered as admin on the backend
-- "Activate Admin" step: show an "Login with Internet Identity" button. On success, call `_initializeAccessControlWithSecret` with the Caffeine admin token (read from env/config). This self-registers the first caller as admin on the canister permanently.
-- Once `isCallerAdmin()` returns true, skip the activation step entirely on future visits (cache in sessionStorage)
-- Show clear status in the admin header: "Connected as Admin" (green) or "Login Required" (yellow) with a login button
+- A `CAFFEINE_ADMIN_TOKEN` constant stored in `src/frontend/src/data/adminToken.ts` with a securely generated value
+- A visible token reveal section in `AdminRegistrationGate` that shows the admin token value with a copy button, so the admin can see it once and use it to bootstrap access
+- Auto-populate the token input field with the known token value so the admin can simply click "Activate Admin" without manual copy-paste
 
 ### Modify
-- The admin panel main layout: add a small top banner showing II connection status and an "Activate Admin" button if not yet admin
-- `useAddProduct`, `useUpdateProduct`, `useDeleteProduct` hooks: show a more helpful error message directing user to use the Activate Admin banner
-- The activation flow must handle: (a) already registered as admin -- skip silently, (b) already registered as user -- show error, (c) not registered yet + wrong token -- show error
+- `AdminRegistrationGate` component in `AdminPage.tsx`: add a "Your Admin Token" reveal card showing the token with a copy button and an eye/hide toggle; auto-fill the token input; update placeholder and helper text to make clear the token is displayed above
 
 ### Remove
-- Any remaining references to "Caffeine admin token" UI that confused the user
-- localStorage fallback for product storage (the backend must be the source of truth)
+- The vague "You can find this token in your Caffeine platform dashboard under project settings" footer note (which is incorrect — the token is stored in the app code, not in Caffeine settings)
 
 ## Implementation Plan
-1. Add `useActivateAdmin` mutation in useQueries.ts that calls `_initializeAccessControlWithSecret` with the env token
-2. Add `useInternetIdentity` login trigger in the admin panel (already available via hook)
-3. In AdminPage.tsx, after password gate passes:
-   - Check `isCallerAdmin()` query result
-   - If not admin: show a clean "Connect & Activate" banner with II login button
-   - After II login: auto-call `_initializeAccessControlWithSecret`
-   - After success: refetch `isCallerAdmin`, show green "Connected as Admin"
-4. Cache admin activation state in sessionStorage so repeat visits skip the step
-5. Remove any confusing token paste UI
-6. Keep the password gate as the first layer
+
+1. Create `src/frontend/src/data/adminToken.ts` exporting the `CAFFEINE_ADMIN_TOKEN` constant
+2. Update `AdminRegistrationGate` in `AdminPage.tsx` to:
+   - Import the token from `adminToken.ts`
+   - Auto-fill the token state on mount
+   - Show a "Your Admin Token" reveal card with eye toggle, copy button, and the actual token value
+   - Update the descriptive text to say "This is your one-time bootstrap token. Use it to register as admin."
+   - Remove the incorrect Caffeine settings footer note
+3. Validate and deploy
