@@ -2555,9 +2555,6 @@ function AdminRegistrationGate() {
   const qc = useQueryClient();
   const [activateError, setActivateError] = useState("");
   const [activating, setActivating] = useState(false);
-  const [activateSuccess, setActivateSuccess] = useState(false);
-  // Timeout guard: if spinner runs for >15s without resolving, show error
-  const [timedOut, setTimedOut] = useState(false);
 
   const { mutate: doActivate } = activateAdmin;
 
@@ -2565,50 +2562,26 @@ function AdminRegistrationGate() {
     if (!actor) return;
     setActivateError("");
     setActivating(true);
-    setTimedOut(false);
-
-    const timeoutId = setTimeout(() => {
-      setTimedOut(true);
-      setActivating(false);
-      setActivateError(
-        "Connection timed out. The backend canister may be unavailable. Please retry.",
-      );
-    }, 15000);
 
     doActivate(undefined, {
-      onSuccess: () => {
-        clearTimeout(timeoutId);
-        console.log("[AdminRegistrationGate] Activation succeeded");
+      onSuccess: async () => {
+        console.log(
+          "[AdminRegistrationGate] Activation succeeded — refreshing admin status",
+        );
         setActivating(false);
-        setActivateSuccess(true);
-        void qc.invalidateQueries({ queryKey: ["isAdmin"] });
+        await qc.invalidateQueries({ queryKey: ["isAdmin"] });
+        await qc.refetchQueries({ queryKey: ["isAdmin"] });
       },
       onError: (err) => {
-        clearTimeout(timeoutId);
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[AdminRegistrationGate] Activation failed:", msg);
         setActivating(false);
-
-        // If already registered, treat as success — just re-check admin status
-        if (
-          msg.toLowerCase().includes("already") ||
-          msg.toLowerCase().includes("duplicate") ||
-          msg.toLowerCase().includes("initialized") ||
-          msg.toLowerCase().includes("access control")
-        ) {
-          console.log(
-            "[AdminRegistrationGate] Already registered — refreshing admin check",
-          );
-          setActivateSuccess(true);
-          void qc.invalidateQueries({ queryKey: ["isAdmin"] });
-        } else {
-          setActivateError(msg);
-        }
+        setActivateError(msg);
       },
     });
   };
 
-  // Auto-activate once: fire only when actor is first ready and we haven't started yet
+  // Auto-trigger activation once the actor is ready
   const hasAutoFired = useRef(false);
   const runActivationRef = useRef(runActivation);
   runActivationRef.current = runActivation;
@@ -2642,8 +2615,8 @@ function AdminRegistrationGate() {
     );
   }
 
-  // Show spinner while activating (but not if timed out)
-  if ((activating || activateSuccess) && !timedOut) {
+  // Show spinner while activating
+  if (activating) {
     return (
       <DarkScreenWrapper>
         <div
@@ -2658,14 +2631,10 @@ function AdminRegistrationGate() {
             className="text-base font-semibold mb-1"
             style={{ color: "#ffffff" }}
           >
-            {activateSuccess
-              ? "Activation complete"
-              : "Activating Admin Access"}
+            Activating admin access...
           </p>
           <p className="text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>
-            {activateSuccess
-              ? "Verifying your admin role..."
-              : "Registering your account on the backend..."}
+            Registering your Internet Identity on the backend...
           </p>
         </div>
       </DarkScreenWrapper>
@@ -2711,7 +2680,55 @@ function AdminRegistrationGate() {
         </p>
       </div>
 
-      {/* Error display */}
+      {/* Actor not ready */}
+      {!actor && !actorFetching && (
+        <div
+          data-ocid="admin.actor_error_state"
+          className="mb-5 p-4 rounded-xl"
+          style={{
+            background: "rgba(234,179,8,0.08)",
+            border: "1px solid rgba(234,179,8,0.25)",
+          }}
+        >
+          <div className="flex items-start gap-2.5 mb-3">
+            <AlertCircle
+              className="h-4 w-4 shrink-0 mt-0.5"
+              style={{ color: "#fbbf24" }}
+            />
+            <div>
+              <p
+                className="text-sm font-semibold mb-0.5"
+                style={{ color: "#fbbf24" }}
+              >
+                Could not connect to the backend canister
+              </p>
+              <p className="text-xs" style={{ color: "rgba(251,191,36,0.8)" }}>
+                The actor failed to initialize. This may happen if the canister
+                is not yet deployed or the network is slow.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            data-ocid="admin.actor_retry_button"
+            onClick={() => {
+              hasAutoFired.current = false;
+              void qc.invalidateQueries({ queryKey: ["actor"] });
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all w-full justify-center"
+            style={{
+              background: "rgba(234,179,8,0.15)",
+              border: "1px solid rgba(234,179,8,0.3)",
+              color: "#fbbf24",
+            }}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry Connection
+          </button>
+        </div>
+      )}
+
+      {/* Activation error */}
       {activateError && (
         <div
           data-ocid="admin.activation_error_state"
@@ -2757,57 +2774,8 @@ function AdminRegistrationGate() {
         </div>
       )}
 
-      {/* Actor not ready */}
-      {!actor && !actorFetching && (
-        <div
-          data-ocid="admin.actor_error_state"
-          className="mb-5 p-4 rounded-xl"
-          style={{
-            background: "rgba(234,179,8,0.08)",
-            border: "1px solid rgba(234,179,8,0.25)",
-          }}
-        >
-          <div className="flex items-start gap-2.5 mb-3">
-            <AlertCircle
-              className="h-4 w-4 shrink-0 mt-0.5"
-              style={{ color: "#fbbf24" }}
-            />
-            <div>
-              <p
-                className="text-sm font-semibold mb-0.5"
-                style={{ color: "#fbbf24" }}
-              >
-                Could not connect to the backend canister
-              </p>
-              <p className="text-xs" style={{ color: "rgba(251,191,36,0.8)" }}>
-                The actor failed to initialize. This may happen if the canister
-                is not yet deployed or the network is slow. Click retry to try
-                again.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            data-ocid="admin.actor_retry_button"
-            onClick={() => {
-              hasAutoFired.current = false;
-              void qc.invalidateQueries({ queryKey: ["actor"] });
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all w-full justify-center"
-            style={{
-              background: "rgba(234,179,8,0.15)",
-              border: "1px solid rgba(234,179,8,0.3)",
-              color: "#fbbf24",
-            }}
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry Connection
-          </button>
-        </div>
-      )}
-
-      {/* Manual activate button (shown after error or when actor ready but not yet fired) */}
-      {actor && !activating && !activateSuccess && (
+      {/* Manual activate button */}
+      {actor && !activating && (
         <button
           type="button"
           data-ocid="admin.activate_button"
@@ -2842,7 +2810,7 @@ export function AdminPage() {
     () => sessionStorage.getItem("admin_auth") === "true",
   );
   const { identity, isInitializing } = useInternetIdentity();
-  const { isActorError } = useActorStatus();
+  const { isFetching: actorBuilding } = useActorStatus();
   const { data: isAdmin, isLoading: isAdminLoading } = useIsAdmin();
 
   // Step 1: Password gate
@@ -2876,9 +2844,24 @@ export function AdminPage() {
     return <IILoginGate />;
   }
 
-  // Step 3: Actor errored (token missing/wrong) → show token entry gate immediately
-  if (isActorError) {
-    return <AdminRegistrationGate />;
+  // Step 3: Actor still building after authentication — show brief spinner
+  if (actorBuilding) {
+    return (
+      <DarkScreenWrapper>
+        <div className="text-center py-8">
+          <Loader2
+            className="h-10 w-10 animate-spin mx-auto mb-4"
+            style={{ color: "#4a9eff" }}
+          />
+          <p
+            className="text-sm font-medium"
+            style={{ color: "rgba(255,255,255,0.6)" }}
+          >
+            Connecting to backend...
+          </p>
+        </div>
+      </DarkScreenWrapper>
+    );
   }
 
   // Step 4: Identity loaded — check admin status

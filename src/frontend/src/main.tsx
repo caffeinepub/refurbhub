@@ -15,14 +15,18 @@ declare global {
   }
 }
 
-// Seed the admin token into sessionStorage so useActor's getSecretParameter
-// always finds it. This must happen before any actor is constructed.
+// Seed the admin token into sessionStorage so useActor can find it via
+// getSecretParameter("caffeineAdminToken"). This must run before any actor
+// is constructed. The token is only used on the very first authenticated call
+// to _initializeAccessControlWithSecret — after the first admin is registered
+// the canister ignores subsequent calls from already-registered principals.
 try {
-  if (CAFFEINE_ADMIN_TOKEN) {
+  const existingToken = sessionStorage.getItem("caffeineAdminToken");
+  if (!existingToken || existingToken.trim() === "") {
     sessionStorage.setItem("caffeineAdminToken", CAFFEINE_ADMIN_TOKEN);
   }
 } catch {
-  // sessionStorage unavailable — proceed anyway
+  // sessionStorage not available (private browsing with strict settings)
 }
 
 const queryClient = new QueryClient();

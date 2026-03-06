@@ -248,11 +248,32 @@ export function useIsAdmin() {
     queryFn: async () => {
       if (!actor || !isConnected) return false;
       console.log("[useIsAdmin] Checking admin status on backend");
-      const result = await actor.isCallerAdmin();
-      console.log("[useIsAdmin] Admin status:", result);
-      return result;
+      try {
+        const result = await actor.isCallerAdmin();
+        console.log("[useIsAdmin] Admin status:", result);
+        return result;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // The canister traps with "User is not registered" when the principal
+        // has never called _initializeAccessControlWithSecret.
+        // Treat this as "not admin yet" rather than a hard error so the
+        // AdminRegistrationGate can proceed with activation.
+        if (
+          msg.toLowerCase().includes("not registered") ||
+          msg.toLowerCase().includes("user is not") ||
+          msg.toLowerCase().includes("trap")
+        ) {
+          console.log(
+            "[useIsAdmin] Principal not yet registered — returning false (will proceed to activation)",
+          );
+          return false;
+        }
+        console.error("[useIsAdmin] Unexpected error:", err);
+        return false;
+      }
     },
     enabled: !isFetching && isConnected && !!actor,
+    retry: false,
   });
 }
 
