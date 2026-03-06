@@ -81,7 +81,6 @@ import type { Product } from "../backend.d";
 import { CAFFEINE_ADMIN_TOKEN } from "../data/adminToken";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
-  useActivateAdmin,
   useActorStatus,
   useAddProduct,
   useAdminProducts,
@@ -2551,44 +2550,102 @@ function IILoginGate() {
 
 function AdminRegistrationGate() {
   const { actor, isFetching: actorFetching } = useActorStatus();
-  const activateAdmin = useActivateAdmin();
   const qc = useQueryClient();
   const [activateError, setActivateError] = useState("");
   const [activating, setActivating] = useState(false);
+  // Track whether the auto-activation already ran so we never fire it twice
+  const hasAutoFired = useRef(false);
 
-  const { mutate: doActivate } = activateAdmin;
-
-  const runActivation = () => {
+  const runActivation = async () => {
     if (!actor) return;
     setActivateError("");
     setActivating(true);
 
-    doActivate(undefined, {
-      onSuccess: async () => {
-        console.log(
-          "[AdminRegistrationGate] Activation succeeded — refreshing admin status",
-        );
-        setActivating(false);
-        await qc.invalidateQueries({ queryKey: ["isAdmin"] });
-        await qc.refetchQueries({ queryKey: ["isAdmin"] });
-      },
-      onError: (err) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error("[AdminRegistrationGate] Activation failed:", msg);
+    try {
+      console.log(
+        "[AdminRegistrationGate] Calling _initializeAccessControlWithSecret",
+      );
+      // Call the backend directly — useActor already ran this once, so either:
+      //   (a) we are already admin → isCallerAdmin() returns true below
+      //   (b) we need to register → this call will register us
+      await (
+        actor as unknown as {
+          _initializeAccessControlWithSecret: (s: string) => Promise<void>;
+        }
+      )._initializeAccessControlWithSecret(CAFFEINE_ADMIN_TOKEN);
+      console.log(
+        "[AdminRegistrationGate] _initializeAccessControlWithSecret completed",
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const msgLower = msg.toLowerCase();
+      // "already registered" variants are fine — the principal is already in the canister
+      if (
+        !msgLower.includes("already") &&
+        !msgLower.includes("duplicate") &&
+        !msgLower.includes("initialized") &&
+        !msgLower.includes("access control") &&
+        !msgLower.includes("cannot call")
+      ) {
+        console.error("[AdminRegistrationGate] Unexpected error:", msg);
         setActivating(false);
         setActivateError(msg);
-      },
-    });
+        return;
+      }
+      console.log(
+        "[AdminRegistrationGate] Already registered (ok) — checking admin status",
+      );
+    }
+
+    // Now directly check isCallerAdmin() on the actor to avoid stale cache
+    try {
+      const isNowAdmin = await actor.isCallerAdmin();
+      console.log("[AdminRegistrationGate] isCallerAdmin() =", isNowAdmin);
+
+      if (isNowAdmin) {
+        // Force the query cache to reflect the confirmed admin status
+        qc.setQueryData(["isAdmin"], true);
+        await qc.invalidateQueries({ queryKey: ["isAdmin"] });
+      } else {
+        // Principal is registered but NOT admin — another user already took admin role
+        // or the wrong token was used in a previous session
+        setActivateError(
+          "This Internet Identity is already registered but does not have admin access. " +
+            "Only the first Internet Identity to activate admin gets full access. " +
+            "If you are the owner, please contact support or redeploy the canister.",
+        );
+      }
+    } catch (checkErr) {
+      const checkMsg =
+        checkErr instanceof Error ? checkErr.message : String(checkErr);
+      const isNotRegistered =
+        checkMsg.toLowerCase().includes("not registered") ||
+        checkMsg.toLowerCase().includes("user is not") ||
+        checkMsg.toLowerCase().includes("trap");
+      if (isNotRegistered) {
+        // The principal has no role yet — this happens when the backend rejected
+        // the token (e.g. wrong token). Surface a clear error.
+        setActivateError(
+          "Admin registration was rejected by the backend. " +
+            "The admin token may not match. Please contact support.",
+        );
+      } else {
+        setActivateError(checkMsg);
+      }
+    }
+
+    setActivating(false);
   };
 
-  // Auto-trigger activation once the actor is ready
-  const hasAutoFired = useRef(false);
+  // Keep a ref to the latest runActivation so the effect closure is stable
   const runActivationRef = useRef(runActivation);
   runActivationRef.current = runActivation;
+
+  // Auto-trigger activation once the actor is ready (runs exactly once per mount)
   useEffect(() => {
     if (actor && !actorFetching && !hasAutoFired.current) {
       hasAutoFired.current = true;
-      runActivationRef.current();
+      void runActivationRef.current();
     }
   }, [actor, actorFetching]);
 
@@ -2714,6 +2771,7 @@ function AdminRegistrationGate() {
             onClick={() => {
               hasAutoFired.current = false;
               void qc.invalidateQueries({ queryKey: ["actor"] });
+              void qc.refetchQueries({ queryKey: ["actor"] });
             }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all w-full justify-center"
             style={{
@@ -2758,7 +2816,7 @@ function AdminRegistrationGate() {
           <button
             type="button"
             data-ocid="admin.activation_retry_button"
-            onClick={runActivation}
+            onClick={() => void runActivation()}
             disabled={!actor}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all w-full justify-center"
             style={{
@@ -2779,7 +2837,7 @@ function AdminRegistrationGate() {
         <button
           type="button"
           data-ocid="admin.activate_button"
-          onClick={runActivation}
+          onClick={() => void runActivation()}
           className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
           style={{
             background: "linear-gradient(135deg, #1E5EFF, #3b7dff)",
