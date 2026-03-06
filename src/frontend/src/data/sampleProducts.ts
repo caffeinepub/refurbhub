@@ -1,0 +1,103 @@
+import type { Product } from "../backend.d";
+
+export const SAMPLE_PRODUCTS: Product[] = [
+  {
+    id: 1n,
+    name: "Dell XPS 15 9520",
+    brand: "Dell",
+    processor: "Intel Core i7-12700H",
+    ram: "16GB",
+    storage: "512GB SSD",
+    condition: "Like New",
+    price: 85000,
+    discountPrice: 72000,
+    description:
+      "The Dell XPS 15 delivers exceptional performance in a premium slim chassis. Features a stunning 15.6-inch OLED display, powerful 12th Gen Intel Core i7 processor, and a dedicated NVIDIA GeForce RTX 3050 Ti GPU. Perfect for professionals and creatives alike.",
+    stock: 5n,
+    imageUrl: "https://placehold.co/600x400/e2e8f0/64748b?text=Dell+XPS+15",
+    createdAt: BigInt(Date.now() - 7 * 24 * 60 * 60 * 1000),
+  },
+  {
+    id: 2n,
+    name: "HP EliteBook 840 G9",
+    brand: "HP",
+    processor: "Intel Core i5-1235U",
+    ram: "16GB",
+    storage: "256GB SSD",
+    condition: "Excellent",
+    price: 62000,
+    discountPrice: 52000,
+    description:
+      "HP EliteBook 840 G9 is a business-class laptop built with enterprise-grade durability. Features HP Sure Shield security, a 14-inch anti-glare display, and exceptional battery life up to 12 hours. MIL-STD tested for extreme conditions.",
+    stock: 8n,
+    imageUrl:
+      "https://placehold.co/600x400/e2e8f0/64748b?text=HP+EliteBook+840",
+    createdAt: BigInt(Date.now() - 14 * 24 * 60 * 60 * 1000),
+  },
+  {
+    id: 3n,
+    name: "Lenovo ThinkPad X1 Carbon Gen 10",
+    brand: "Lenovo",
+    processor: "Intel Core i7-1260P",
+    ram: "16GB",
+    storage: "512GB SSD",
+    condition: "Like New",
+    price: 95000,
+    discountPrice: 78000,
+    description:
+      "The iconic ThinkPad X1 Carbon redefines ultrabook perfection. Weighing just 1.12kg with MIL-SPEC durability, it features a 14-inch IPS display, Thunderbolt 4, and Intel Evo certification. Business productivity at its finest.",
+    stock: 3n,
+    imageUrl:
+      "https://placehold.co/600x400/e2e8f0/64748b?text=ThinkPad+X1+Carbon",
+    createdAt: BigInt(Date.now() - 3 * 24 * 60 * 60 * 1000),
+  },
+  {
+    id: 4n,
+    name: "Apple MacBook Pro 13-inch M2",
+    brand: "Apple",
+    processor: "Apple M2",
+    ram: "8GB",
+    storage: "256GB SSD",
+    condition: "Excellent",
+    price: 115000,
+    discountPrice: 98000,
+    description:
+      "Apple MacBook Pro 13 with M2 chip delivers incredible performance and all-day battery life up to 20 hours. Features a stunning Retina display, Touch Bar, Touch ID, and the power of Apple Silicon. Seamlessly integrates with the Apple ecosystem.",
+    stock: 4n,
+    imageUrl: "https://placehold.co/600x400/e2e8f0/64748b?text=MacBook+Pro+M2",
+    createdAt: BigInt(Date.now() - 1 * 24 * 60 * 60 * 1000),
+  },
+  {
+    id: 5n,
+    name: "Dell Latitude 5520",
+    brand: "Dell",
+    processor: "Intel Core i5-1135G7",
+    ram: "8GB",
+    storage: "256GB SSD",
+    condition: "Good",
+    price: 45000,
+    discountPrice: 36000,
+    description:
+      "Dell Latitude 5520 is a reliable business laptop offering premium security features, robust performance, and flexibility to work anywhere. Features SafeScreen privacy filter, ExpressCharge technology, and an ergonomic keyboard.",
+    stock: 12n,
+    imageUrl:
+      "https://placehold.co/600x400/e2e8f0/64748b?text=Dell+Latitude+5520",
+    createdAt: BigInt(Date.now() - 10 * 24 * 60 * 60 * 1000),
+  },
+  {
+    id: 6n,
+    name: "Lenovo IdeaPad 5 Pro",
+    brand: "Lenovo",
+    processor: "AMD Ryzen 7 5800H",
+    ram: "16GB",
+    storage: "512GB SSD",
+    condition: "Excellent",
+    price: 58000,
+    discountPrice: 48000,
+    description:
+      "Lenovo IdeaPad 5 Pro combines power and portability in a sleek aluminium chassis. With AMD Ryzen 7 and a 2.5K OLED display, it's perfect for creators and professionals. Features Dolby Atmos audio and fast charging.",
+    stock: 6n,
+    imageUrl: "https://placehold.co/600x400/e2e8f0/64748b?text=IdeaPad+5+Pro",
+    createdAt: BigInt(Date.now() - 5 * 24 * 60 * 60 * 1000),
+  },
+];
