@@ -365,7 +365,10 @@ function ProductsTab() {
           toast.success("Product added successfully");
           setShowAddDialog(false);
         },
-        onError: () => toast.error("Failed to add product"),
+        onError: (err) =>
+          toast.error(
+            err instanceof Error ? err.message : "Failed to add product",
+          ),
       },
     );
   };
@@ -1921,7 +1924,7 @@ export function AdminPage() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="font-display font-bold text-3xl text-foreground mb-1">
           Admin Dashboard
         </h1>
