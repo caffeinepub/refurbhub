@@ -261,17 +261,37 @@ export function useActivateAdmin() {
   return useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Not connected to backend");
-      console.log("[useActivateAdmin] Registering caller as admin");
-      const actorAny = actor as unknown as {
-        _initializeAccessControlWithSecret: (secret: string) => Promise<void>;
-      };
-      await actorAny._initializeAccessControlWithSecret("");
-      console.log("[useActivateAdmin] Admin registration successful");
+      console.log("[useActivateAdmin] Attempting admin registration...");
+      try {
+        const actorAny = actor as unknown as {
+          _initializeAccessControlWithSecret: (secret: string) => Promise<void>;
+        };
+        await actorAny._initializeAccessControlWithSecret("");
+        console.log("[useActivateAdmin] Registration call completed");
+      } catch (err) {
+        // If the call traps with "already registered" or similar,
+        // re-check admin status instead of failing hard
+        console.warn("[useActivateAdmin] Registration call threw:", err);
+        // Re-throw so the UI can decide how to handle it
+        throw err;
+      }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["isAdmin"] });
+      console.log("[useActivateAdmin] Admin registration successful");
+      void qc.invalidateQueries({ queryKey: ["isAdmin"] });
+      // Also refetch the actor in case it was in error state
+      void qc.invalidateQueries({ queryKey: ["actor"] });
     },
   });
+}
+
+export function useActorStatus() {
+  const { actor, isFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
+  // If the user is authenticated but actor is null and not fetching → actor build failed
+  const isActorError = isConnected && !actor && !isFetching;
+  return { actor, isFetching, isActorError };
 }
 
 /* ─── Stripe ─── */

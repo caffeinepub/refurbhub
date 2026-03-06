@@ -76,10 +76,9 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "../backend.d";
-import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
-  useActivateAdmin,
+  useActorStatus,
   useAddProduct,
   useAdminProducts,
   useDeleteProduct,
@@ -2544,33 +2543,52 @@ function IILoginGate() {
   );
 }
 
-/* ─── Step 3: Admin Registration Gate ─── */
+/* ─── Step 3: Admin Token Gate ─── */
 
 function AdminRegistrationGate() {
-  const activateAdmin = useActivateAdmin();
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching: actorFetching, isActorError } = useActorStatus();
+  const [token, setToken] = useState("");
+  const [tokenError, setTokenError] = useState("");
+  const [isActivating, setIsActivating] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleRegister = () => {
-    if (!actor) {
-      toast.error("Backend not connected. Please wait and try again.");
+  const handleActivate = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = token.trim();
+    if (!trimmed) {
+      setTokenError("Please enter your admin token");
       return;
     }
-    activateAdmin.mutate(undefined, {
-      onSuccess: () => {
-        toast.success("Admin access granted! Welcome to the dashboard.");
-      },
-      onError: (err) => {
-        const msg = err instanceof Error ? err.message : "Registration failed";
-        console.error("[AdminRegistrationGate] Error:", err);
-        toast.error(msg);
-      },
-    });
+    setIsActivating(true);
+    // Store token in sessionStorage — getSecretParameter reads from here on reload
+    sessionStorage.setItem("caffeineAdminToken", trimmed);
+    // Reload so useActor rebuilds the actor with the correct token
+    window.location.reload();
   };
 
-  const isWaiting = actorFetching || !actor;
+  // Show spinner while actor is building for the first time
+  if (actorFetching && !actor) {
+    return (
+      <DarkScreenWrapper>
+        <div className="text-center py-8">
+          <Loader2
+            className="h-10 w-10 animate-spin mx-auto mb-4"
+            style={{ color: "#4a9eff" }}
+          />
+          <p
+            className="text-sm font-medium"
+            style={{ color: "rgba(255,255,255,0.6)" }}
+          >
+            Connecting to backend...
+          </p>
+        </div>
+      </DarkScreenWrapper>
+    );
+  }
 
   return (
     <DarkScreenWrapper>
+      {/* Branding */}
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-2 mb-6">
           <span
@@ -2599,93 +2617,165 @@ function AdminRegistrationGate() {
           className="text-2xl font-bold mb-2"
           style={{ color: "#ffffff", letterSpacing: "-0.02em" }}
         >
-          Register as Admin
+          Activate Admin Access
         </h1>
         <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-          Your account is not yet registered as admin on this canister. Click
-          below to register your Internet Identity as the site administrator.
+          {isActorError
+            ? "Admin token required — paste it below to connect"
+            : "Enter your admin token to unlock the dashboard"}
         </p>
       </div>
 
-      {activateAdmin.isError && (
+      {/* Actor error notice */}
+      {isActorError && (
         <div
-          data-ocid="admin.register_error_state"
-          className="flex items-center gap-2 text-sm mb-4 p-3 rounded-xl"
+          data-ocid="admin.actor_error_state"
+          className="flex items-start gap-2 text-sm mb-5 p-3 rounded-xl"
           style={{
-            background: "rgba(239,68,68,0.1)",
-            border: "1px solid rgba(239,68,68,0.25)",
-            color: "#f87171",
+            background: "rgba(234,179,8,0.08)",
+            border: "1px solid rgba(234,179,8,0.25)",
+            color: "#fbbf24",
           }}
           role="alert"
         >
-          <AlertCircle className="h-4 w-4 shrink-0" />
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            {activateAdmin.error instanceof Error
-              ? activateAdmin.error.message
-              : "Registration failed. Please try again."}
+            Backend connection failed. This usually means the admin token wasn't
+            found. Paste your token below to reconnect.
           </span>
         </div>
       )}
 
-      <button
-        type="button"
-        data-ocid="admin.register_admin_button"
-        onClick={handleRegister}
-        disabled={activateAdmin.isPending || isWaiting}
-        className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
-        style={{
-          background:
-            activateAdmin.isPending || isWaiting
+      {/* Token form */}
+      <form
+        onSubmit={handleActivate}
+        className="space-y-4"
+        data-ocid="admin.token_form"
+      >
+        <div className="space-y-2">
+          <label
+            htmlFor="admin-token"
+            className="text-sm font-medium"
+            style={{ color: "rgba(255,255,255,0.7)" }}
+          >
+            Admin Token
+          </label>
+          <div className="relative">
+            <input
+              id="admin-token"
+              data-ocid="admin.token_input"
+              type={showPassword ? "text" : "password"}
+              value={token}
+              onChange={(e) => {
+                setToken(e.target.value);
+                if (tokenError) setTokenError("");
+              }}
+              placeholder="Paste your Caffeine admin token..."
+              autoComplete="off"
+              className="w-full h-12 rounded-xl px-4 pr-12 text-sm outline-none transition-all duration-200"
+              style={{
+                background: "rgba(255,255,255,0.07)",
+                border: tokenError
+                  ? "1px solid rgba(239,68,68,0.6)"
+                  : "1px solid rgba(255,255,255,0.12)",
+                color: "#ffffff",
+              }}
+              onFocus={(e) => {
+                if (!tokenError) {
+                  e.currentTarget.style.border =
+                    "1px solid rgba(74,158,255,0.6)";
+                  e.currentTarget.style.boxShadow =
+                    "0 0 0 3px rgba(30,94,255,0.15)";
+                }
+              }}
+              onBlur={(e) => {
+                if (!tokenError) {
+                  e.currentTarget.style.border =
+                    "1px solid rgba(255,255,255,0.12)";
+                  e.currentTarget.style.boxShadow = "none";
+                }
+              }}
+            />
+            <button
+              type="button"
+              data-ocid="admin.token_toggle"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-colors duration-150"
+              style={{ color: "rgba(255,255,255,0.4)" }}
+              aria-label={showPassword ? "Hide token" : "Show token"}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+
+          {tokenError && (
+            <p
+              data-ocid="admin.token_error_state"
+              className="text-xs flex items-center gap-1.5"
+              style={{ color: "#f87171" }}
+            >
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {tokenError}
+            </p>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          data-ocid="admin.activate_token_button"
+          disabled={isActivating}
+          className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-2"
+          style={{
+            background: isActivating
               ? "rgba(30,94,255,0.5)"
               : "linear-gradient(135deg, #1E5EFF, #3b7dff)",
-          color: "#ffffff",
-          boxShadow:
-            activateAdmin.isPending || isWaiting
-              ? "none"
-              : "0 4px 20px rgba(30,94,255,0.4)",
-          cursor:
-            activateAdmin.isPending || isWaiting ? "not-allowed" : "pointer",
-        }}
-        onMouseEnter={(e) => {
-          if (!activateAdmin.isPending && !isWaiting) {
-            e.currentTarget.style.background =
-              "linear-gradient(135deg, #2468ff, #4a8aff)";
-            e.currentTarget.style.boxShadow = "0 6px 28px rgba(30,94,255,0.55)";
-            e.currentTarget.style.transform = "translateY(-1px)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!activateAdmin.isPending && !isWaiting) {
-            e.currentTarget.style.background =
-              "linear-gradient(135deg, #1E5EFF, #3b7dff)";
-            e.currentTarget.style.boxShadow = "0 4px 20px rgba(30,94,255,0.4)";
-            e.currentTarget.style.transform = "translateY(0)";
-          }
-        }}
-      >
-        {isWaiting ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Connecting to backend...
-          </>
-        ) : activateAdmin.isPending ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Registering admin access...
-          </>
-        ) : (
-          <>
-            <ShieldCheck className="h-4 w-4" />
-            Register as Admin
-          </>
-        )}
-      </button>
+            color: "#ffffff",
+            boxShadow: isActivating ? "none" : "0 4px 20px rgba(30,94,255,0.4)",
+            cursor: isActivating ? "not-allowed" : "pointer",
+          }}
+          onMouseEnter={(e) => {
+            if (!isActivating) {
+              e.currentTarget.style.background =
+                "linear-gradient(135deg, #2468ff, #4a8aff)";
+              e.currentTarget.style.boxShadow =
+                "0 6px 28px rgba(30,94,255,0.55)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isActivating) {
+              e.currentTarget.style.background =
+                "linear-gradient(135deg, #1E5EFF, #3b7dff)";
+              e.currentTarget.style.boxShadow =
+                "0 4px 20px rgba(30,94,255,0.4)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }
+          }}
+        >
+          {isActivating ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Activating...
+            </>
+          ) : (
+            <>
+              <ShieldCheck className="h-4 w-4" />
+              Activate Admin
+            </>
+          )}
+        </button>
+      </form>
 
       <p
         className="text-center text-xs mt-4"
         style={{ color: "rgba(255,255,255,0.35)" }}
       >
-        This registers your Internet Identity principal as the site admin
+        You can find this token in your Caffeine platform dashboard under
+        project settings
       </p>
     </DarkScreenWrapper>
   );
@@ -2698,6 +2788,7 @@ export function AdminPage() {
     () => sessionStorage.getItem("admin_auth") === "true",
   );
   const { identity, isInitializing } = useInternetIdentity();
+  const { isActorError } = useActorStatus();
   const { data: isAdmin, isLoading: isAdminLoading } = useIsAdmin();
 
   // Step 1: Password gate
@@ -2731,7 +2822,12 @@ export function AdminPage() {
     return <IILoginGate />;
   }
 
-  // Step 3: Identity loaded — check admin status
+  // Step 3: Actor errored (token missing/wrong) → show token entry gate immediately
+  if (isActorError) {
+    return <AdminRegistrationGate />;
+  }
+
+  // Step 4: Identity loaded — check admin status
   if (isAdminLoading) {
     return (
       <DarkScreenWrapper>
@@ -2751,11 +2847,12 @@ export function AdminPage() {
     );
   }
 
+  // Step 5: Not admin — show token entry gate
   if (!isAdmin) {
     return <AdminRegistrationGate />;
   }
 
-  // Step 4: Authenticated admin — show dashboard
+  // Step 6: Authenticated admin — show dashboard
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
