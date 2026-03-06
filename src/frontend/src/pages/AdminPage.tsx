@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Bot,
@@ -65,6 +66,7 @@ import {
   Package,
   Pencil,
   Plus,
+  RefreshCw,
   Save,
   ShieldCheck,
   ShoppingBag,
@@ -79,6 +81,7 @@ import type { Product } from "../backend.d";
 import { CAFFEINE_ADMIN_TOKEN } from "../data/adminToken";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
+  useActivateAdmin,
   useActorStatus,
   useAddProduct,
   useAdminProducts,
@@ -2544,43 +2547,86 @@ function IILoginGate() {
   );
 }
 
-/* ─── Step 3: Admin Token Gate ─── */
+/* ─── Step 3: Admin Registration Gate ─── */
 
 function AdminRegistrationGate() {
-  const { actor, isFetching: actorFetching, isActorError } = useActorStatus();
-  // Pre-fill the token input with the known CAFFEINE_ADMIN_TOKEN value
-  const [token, setToken] = useState(CAFFEINE_ADMIN_TOKEN);
-  const [tokenError, setTokenError] = useState("");
-  const [isActivating, setIsActivating] = useState(false);
-  const [showToken, setShowToken] = useState(false);
-  const [tokenCopied, setTokenCopied] = useState(false);
+  const { actor, isFetching: actorFetching } = useActorStatus();
+  const activateAdmin = useActivateAdmin();
+  const qc = useQueryClient();
+  const [activateError, setActivateError] = useState("");
+  const [activating, setActivating] = useState(false);
+  const [activateSuccess, setActivateSuccess] = useState(false);
+  // Timeout guard: if spinner runs for >15s without resolving, show error
+  const [timedOut, setTimedOut] = useState(false);
 
-  const copyToken = () => {
-    void navigator.clipboard.writeText(CAFFEINE_ADMIN_TOKEN).then(() => {
-      setTokenCopied(true);
-      setTimeout(() => setTokenCopied(false), 2000);
+  const { mutate: doActivate } = activateAdmin;
+
+  const runActivation = () => {
+    if (!actor) return;
+    setActivateError("");
+    setActivating(true);
+    setTimedOut(false);
+
+    const timeoutId = setTimeout(() => {
+      setTimedOut(true);
+      setActivating(false);
+      setActivateError(
+        "Connection timed out. The backend canister may be unavailable. Please retry.",
+      );
+    }, 15000);
+
+    doActivate(undefined, {
+      onSuccess: () => {
+        clearTimeout(timeoutId);
+        console.log("[AdminRegistrationGate] Activation succeeded");
+        setActivating(false);
+        setActivateSuccess(true);
+        void qc.invalidateQueries({ queryKey: ["isAdmin"] });
+      },
+      onError: (err) => {
+        clearTimeout(timeoutId);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[AdminRegistrationGate] Activation failed:", msg);
+        setActivating(false);
+
+        // If already registered, treat as success — just re-check admin status
+        if (
+          msg.toLowerCase().includes("already") ||
+          msg.toLowerCase().includes("duplicate") ||
+          msg.toLowerCase().includes("initialized") ||
+          msg.toLowerCase().includes("access control")
+        ) {
+          console.log(
+            "[AdminRegistrationGate] Already registered — refreshing admin check",
+          );
+          setActivateSuccess(true);
+          void qc.invalidateQueries({ queryKey: ["isAdmin"] });
+        } else {
+          setActivateError(msg);
+        }
+      },
     });
   };
 
-  const handleActivate = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = token.trim();
-    if (!trimmed) {
-      setTokenError("Please enter your admin token");
-      return;
+  // Auto-activate once: fire only when actor is first ready and we haven't started yet
+  const hasAutoFired = useRef(false);
+  const runActivationRef = useRef(runActivation);
+  runActivationRef.current = runActivation;
+  useEffect(() => {
+    if (actor && !actorFetching && !hasAutoFired.current) {
+      hasAutoFired.current = true;
+      runActivationRef.current();
     }
-    setIsActivating(true);
-    // Store token in sessionStorage — getSecretParameter reads from here on reload
-    sessionStorage.setItem("caffeineAdminToken", trimmed);
-    // Reload so useActor rebuilds the actor with the correct token
-    window.location.reload();
-  };
+  }, [actor, actorFetching]);
 
-  // Show spinner while actor is building for the first time
+  // Show spinner while actor is building
   if (actorFetching && !actor) {
     return (
       <DarkScreenWrapper>
-        <div className="text-center py-8">
+        <div
+          className="text-center py-8"
+          data-ocid="admin.connecting_loading_state"
+        >
           <Loader2
             className="h-10 w-10 animate-spin mx-auto mb-4"
             style={{ color: "#4a9eff" }}
@@ -2589,7 +2635,37 @@ function AdminRegistrationGate() {
             className="text-sm font-medium"
             style={{ color: "rgba(255,255,255,0.6)" }}
           >
-            Connecting to backend...
+            Connecting to backend canister...
+          </p>
+        </div>
+      </DarkScreenWrapper>
+    );
+  }
+
+  // Show spinner while activating (but not if timed out)
+  if ((activating || activateSuccess) && !timedOut) {
+    return (
+      <DarkScreenWrapper>
+        <div
+          className="text-center py-8"
+          data-ocid="admin.activating_loading_state"
+        >
+          <Loader2
+            className="h-10 w-10 animate-spin mx-auto mb-4"
+            style={{ color: "#4a9eff" }}
+          />
+          <p
+            className="text-base font-semibold mb-1"
+            style={{ color: "#ffffff" }}
+          >
+            {activateSuccess
+              ? "Activation complete"
+              : "Activating Admin Access"}
+          </p>
+          <p className="text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>
+            {activateSuccess
+              ? "Verifying your admin role..."
+              : "Registering your account on the backend..."}
           </p>
         </div>
       </DarkScreenWrapper>
@@ -2635,215 +2711,118 @@ function AdminRegistrationGate() {
         </p>
       </div>
 
-      {/* ── Token Reveal Card ── */}
-      <div
-        className="rounded-xl p-4 mb-5"
-        style={{
-          background: "rgba(30,94,255,0.08)",
-          border: "1px solid rgba(30,94,255,0.25)",
-        }}
-        data-ocid="admin.token_reveal_card"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <span
-            className="text-xs font-semibold uppercase tracking-wider"
-            style={{ color: "#4a9eff" }}
-          >
-            Your CAFFEINE_ADMIN_TOKEN
-          </span>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              data-ocid="admin.token_reveal_toggle"
-              onClick={() => setShowToken((v) => !v)}
-              className="p-1.5 rounded-lg transition-colors"
-              style={{ color: "rgba(255,255,255,0.5)" }}
-              aria-label={showToken ? "Hide token" : "Reveal token"}
-            >
-              {showToken ? (
-                <EyeOff className="h-3.5 w-3.5" />
-              ) : (
-                <Eye className="h-3.5 w-3.5" />
-              )}
-            </button>
-            <button
-              type="button"
-              data-ocid="admin.token_copy_button"
-              onClick={copyToken}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-              style={{
-                background: tokenCopied
-                  ? "rgba(34,197,94,0.15)"
-                  : "rgba(30,94,255,0.15)",
-                border: tokenCopied
-                  ? "1px solid rgba(34,197,94,0.3)"
-                  : "1px solid rgba(30,94,255,0.3)",
-                color: tokenCopied ? "#4ade80" : "#4a9eff",
-              }}
-            >
-              {tokenCopied ? (
-                <>
-                  <CheckCircle2 className="h-3 w-3" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Save className="h-3 w-3" />
-                  Copy
-                </>
-              )}
-            </button>
+      {/* Error display */}
+      {activateError && (
+        <div
+          data-ocid="admin.activation_error_state"
+          className="mb-5 p-4 rounded-xl"
+          style={{
+            background: "rgba(239,68,68,0.08)",
+            border: "1px solid rgba(239,68,68,0.3)",
+          }}
+        >
+          <div className="flex items-start gap-2.5 mb-3">
+            <AlertCircle
+              className="h-4 w-4 shrink-0 mt-0.5"
+              style={{ color: "#f87171" }}
+            />
+            <div>
+              <p
+                className="text-sm font-semibold mb-0.5"
+                style={{ color: "#f87171" }}
+              >
+                Activation Failed
+              </p>
+              <p className="text-xs" style={{ color: "rgba(248,113,113,0.8)" }}>
+                {activateError}
+              </p>
+            </div>
           </div>
-        </div>
-        <div
-          className="rounded-lg px-3 py-2 font-mono text-xs break-all select-all"
-          style={{
-            background: "rgba(0,0,0,0.3)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            color: showToken ? "#e2e8f0" : "transparent",
-            textShadow: showToken ? "none" : "0 0 8px rgba(255,255,255,0.5)",
-            userSelect: "all",
-            letterSpacing: showToken ? "0.05em" : "normal",
-          }}
-          aria-label="Admin token value"
-        >
-          {CAFFEINE_ADMIN_TOKEN}
-        </div>
-        <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.35)" }}>
-          Keep this token private. The first person to use it becomes the
-          permanent admin.
-        </p>
-      </div>
-
-      {/* Actor error notice */}
-      {isActorError && (
-        <div
-          data-ocid="admin.actor_error_state"
-          className="flex items-start gap-2 text-sm mb-4 p-3 rounded-xl"
-          style={{
-            background: "rgba(234,179,8,0.08)",
-            border: "1px solid rgba(234,179,8,0.25)",
-            color: "#fbbf24",
-          }}
-          role="alert"
-        >
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            Backend connection failed. Click "Activate Admin" below to retry
-            with the token shown above.
-          </span>
+          <button
+            type="button"
+            data-ocid="admin.activation_retry_button"
+            onClick={runActivation}
+            disabled={!actor}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all w-full justify-center"
+            style={{
+              background: "rgba(239,68,68,0.15)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              color: "#f87171",
+              opacity: !actor ? 0.5 : 1,
+            }}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry Activation
+          </button>
         </div>
       )}
 
-      {/* Token form */}
-      <form
-        onSubmit={handleActivate}
-        className="space-y-4"
-        data-ocid="admin.token_form"
-      >
-        <div className="space-y-2">
-          <label
-            htmlFor="admin-token"
-            className="text-sm font-medium"
-            style={{ color: "rgba(255,255,255,0.7)" }}
-          >
-            Confirm Token
-          </label>
-          <div className="relative">
-            <input
-              id="admin-token"
-              data-ocid="admin.token_input"
-              type="password"
-              value={token}
-              onChange={(e) => {
-                setToken(e.target.value);
-                if (tokenError) setTokenError("");
-              }}
-              placeholder="Token pre-filled above"
-              autoComplete="off"
-              className="w-full h-12 rounded-xl px-4 pr-4 text-sm outline-none transition-all duration-200"
-              style={{
-                background: "rgba(255,255,255,0.07)",
-                border: tokenError
-                  ? "1px solid rgba(239,68,68,0.6)"
-                  : "1px solid rgba(255,255,255,0.12)",
-                color: "#ffffff",
-              }}
-              onFocus={(e) => {
-                if (!tokenError) {
-                  e.currentTarget.style.border =
-                    "1px solid rgba(74,158,255,0.6)";
-                  e.currentTarget.style.boxShadow =
-                    "0 0 0 3px rgba(30,94,255,0.15)";
-                }
-              }}
-              onBlur={(e) => {
-                if (!tokenError) {
-                  e.currentTarget.style.border =
-                    "1px solid rgba(255,255,255,0.12)";
-                  e.currentTarget.style.boxShadow = "none";
-                }
-              }}
-            />
-          </div>
-
-          {tokenError && (
-            <p
-              data-ocid="admin.token_error_state"
-              className="text-xs flex items-center gap-1.5"
-              style={{ color: "#f87171" }}
-            >
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              {tokenError}
-            </p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          data-ocid="admin.activate_token_button"
-          disabled={isActivating}
-          className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-2"
+      {/* Actor not ready */}
+      {!actor && !actorFetching && (
+        <div
+          data-ocid="admin.actor_error_state"
+          className="mb-5 p-4 rounded-xl"
           style={{
-            background: isActivating
-              ? "rgba(30,94,255,0.5)"
-              : "linear-gradient(135deg, #1E5EFF, #3b7dff)",
-            color: "#ffffff",
-            boxShadow: isActivating ? "none" : "0 4px 20px rgba(30,94,255,0.4)",
-            cursor: isActivating ? "not-allowed" : "pointer",
-          }}
-          onMouseEnter={(e) => {
-            if (!isActivating) {
-              e.currentTarget.style.background =
-                "linear-gradient(135deg, #2468ff, #4a8aff)";
-              e.currentTarget.style.boxShadow =
-                "0 6px 28px rgba(30,94,255,0.55)";
-              e.currentTarget.style.transform = "translateY(-1px)";
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isActivating) {
-              e.currentTarget.style.background =
-                "linear-gradient(135deg, #1E5EFF, #3b7dff)";
-              e.currentTarget.style.boxShadow =
-                "0 4px 20px rgba(30,94,255,0.4)";
-              e.currentTarget.style.transform = "translateY(0)";
-            }
+            background: "rgba(234,179,8,0.08)",
+            border: "1px solid rgba(234,179,8,0.25)",
           }}
         >
-          {isActivating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Activating...
-            </>
-          ) : (
-            <>
-              <ShieldCheck className="h-4 w-4" />
-              Activate Admin
-            </>
-          )}
+          <div className="flex items-start gap-2.5 mb-3">
+            <AlertCircle
+              className="h-4 w-4 shrink-0 mt-0.5"
+              style={{ color: "#fbbf24" }}
+            />
+            <div>
+              <p
+                className="text-sm font-semibold mb-0.5"
+                style={{ color: "#fbbf24" }}
+              >
+                Could not connect to the backend canister
+              </p>
+              <p className="text-xs" style={{ color: "rgba(251,191,36,0.8)" }}>
+                The actor failed to initialize. This may happen if the canister
+                is not yet deployed or the network is slow. Click retry to try
+                again.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            data-ocid="admin.actor_retry_button"
+            onClick={() => {
+              hasAutoFired.current = false;
+              void qc.invalidateQueries({ queryKey: ["actor"] });
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all w-full justify-center"
+            style={{
+              background: "rgba(234,179,8,0.15)",
+              border: "1px solid rgba(234,179,8,0.3)",
+              color: "#fbbf24",
+            }}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry Connection
+          </button>
+        </div>
+      )}
+
+      {/* Manual activate button (shown after error or when actor ready but not yet fired) */}
+      {actor && !activating && !activateSuccess && (
+        <button
+          type="button"
+          data-ocid="admin.activate_button"
+          onClick={runActivation}
+          className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
+          style={{
+            background: "linear-gradient(135deg, #1E5EFF, #3b7dff)",
+            color: "#ffffff",
+            boxShadow: "0 4px 20px rgba(30,94,255,0.4)",
+          }}
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Activate Admin Access
         </button>
-      </form>
+      )}
 
       <p
         className="text-center text-xs mt-4"

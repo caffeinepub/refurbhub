@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Order, OrderItem, Product, ShoppingItem } from "../backend.d";
+import { CAFFEINE_ADMIN_TOKEN } from "../data/adminToken";
 import {
   type ProductWithMarketPrice,
   SAMPLE_PRODUCTS,
@@ -260,37 +261,70 @@ export function useActivateAdmin() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      if (!actor) throw new Error("Not connected to backend");
-      console.log("[useActivateAdmin] Attempting admin registration...");
+      if (!actor) {
+        console.error(
+          "[useActivateAdmin] Actor is null — cannot activate admin",
+        );
+        throw new Error(
+          "Not connected to backend. Please wait for the connection to establish.",
+        );
+      }
+      console.log(
+        "[useActivateAdmin] Attempting admin registration with token:",
+        `${CAFFEINE_ADMIN_TOKEN.slice(0, 8)}...`,
+      );
       try {
         const actorAny = actor as unknown as {
           _initializeAccessControlWithSecret: (secret: string) => Promise<void>;
         };
-        await actorAny._initializeAccessControlWithSecret("");
-        console.log("[useActivateAdmin] Registration call completed");
+        await actorAny._initializeAccessControlWithSecret(CAFFEINE_ADMIN_TOKEN);
+        console.log("[useActivateAdmin] Admin registration call succeeded");
       } catch (err) {
-        // If the call traps with "already registered" or similar,
-        // re-check admin status instead of failing hard
-        console.warn("[useActivateAdmin] Registration call threw:", err);
-        // Re-throw so the UI can decide how to handle it
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+          "[useActivateAdmin] _initializeAccessControlWithSecret threw:",
+          msg,
+        );
+        // If the canister says access control is already initialized,
+        // this is NOT a real error — the first admin is already registered.
+        // Treat it as success so the caller can re-check admin status.
+        if (
+          msg.toLowerCase().includes("already") ||
+          msg.toLowerCase().includes("duplicate") ||
+          msg.toLowerCase().includes("initialized") ||
+          msg.toLowerCase().includes("access control") ||
+          msg.toLowerCase().includes("cannot call")
+        ) {
+          console.log(
+            "[useActivateAdmin] Access control already set — treating as success",
+          );
+          return; // do not re-throw
+        }
         throw err;
       }
     },
     onSuccess: () => {
-      console.log("[useActivateAdmin] Admin registration successful");
+      console.log(
+        "[useActivateAdmin] Admin registration successful — refreshing admin status",
+      );
       void qc.invalidateQueries({ queryKey: ["isAdmin"] });
-      // Also refetch the actor in case it was in error state
-      void qc.invalidateQueries({ queryKey: ["actor"] });
+    },
+    onError: (err) => {
+      console.error("[useActivateAdmin] Admin activation failed:", err);
     },
   });
 }
 
 export function useActorStatus() {
   const { actor, isFetching } = useActor();
-  const { identity } = useInternetIdentity();
+  const { identity, isInitializing } = useInternetIdentity();
   const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
-  // If the user is authenticated but actor is null and not fetching → actor build failed
-  const isActorError = isConnected && !actor && !isFetching;
+  // Only report an actor error if:
+  // - the user is authenticated (non-anonymous identity)
+  // - II has finished initializing
+  // - actor is null (failed to build)
+  // - and we are not currently fetching
+  const isActorError = isConnected && !isInitializing && !actor && !isFetching;
   return { actor, isFetching, isActorError };
 }
 
