@@ -76,6 +76,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "../backend.d";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useActivateAdmin,
@@ -2328,12 +2329,14 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
 
 function IIConnectStep({ onDone }: { onDone: () => void }) {
   const { identity, login, loginStatus } = useInternetIdentity();
+  const { actor, isFetching: isActorFetching } = useActor();
   const activateAdmin = useActivateAdmin();
   const { data: isAdmin, refetch: refetchIsAdmin } = useIsAdmin();
   const [activationState, setActivationState] = useState<
-    "idle" | "activating" | "success" | "error"
+    "idle" | "need-token" | "activating" | "success" | "error"
   >("idle");
   const [activationError, setActivationError] = useState("");
+  const [tokenInput, setTokenInput] = useState("");
   const isLoggedIn = !!identity && !identity.getPrincipal().isAnonymous();
   const isLoggingIn = loginStatus === "logging-in";
   const activateMutate = activateAdmin.mutate;
@@ -2343,12 +2346,13 @@ function IIConnectStep({ onDone }: { onDone: () => void }) {
     activateMutate(undefined, {
       onSuccess: async () => {
         await refetchIsAdmin();
+        sessionStorage.setItem("admin_activated", "true");
         setActivationState("success");
         setTimeout(() => onDone(), 1500);
       },
       onError: (err) => {
         const msg = err instanceof Error ? err.message : String(err);
-        // "already initialized" → they're already admin, proceed
+        // "already initialized" or user is already in role map → already admin, proceed
         if (
           msg.toLowerCase().includes("already") ||
           msg.toLowerCase().includes("initialized")
@@ -2356,6 +2360,16 @@ function IIConnectStep({ onDone }: { onDone: () => void }) {
           sessionStorage.setItem("admin_activated", "true");
           setActivationState("success");
           setTimeout(() => onDone(), 1500);
+        } else if (
+          msg.toLowerCase().includes("caffeine_admin_token") ||
+          msg.toLowerCase().includes("environment") ||
+          msg.toLowerCase().includes("not set") ||
+          msg.toLowerCase().includes("unauthorized") ||
+          msg.toLowerCase().includes("trap")
+        ) {
+          // Token is needed but wasn't supplied (or was wrong) — ask for it
+          setActivationState("need-token");
+          setActivationError("");
         } else {
           setActivationState("error");
           setActivationError(msg || "Activation failed. Please try again.");
@@ -2364,10 +2378,22 @@ function IIConnectStep({ onDone }: { onDone: () => void }) {
     });
   }, [activateMutate, refetchIsAdmin, onDone]);
 
-  // Once logged in, auto-trigger activation
+  const handleTokenSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const t = tokenInput.trim();
+    if (!t) return;
+    // Store token so useActor picks it up on the next actor creation
+    sessionStorage.setItem("caffeineAdminToken", t);
+    // Reload the page so the actor is rebuilt with the stored token
+    window.location.reload();
+  };
+
+  // Once logged in AND authenticated actor is ready, trigger activation
   useEffect(() => {
     if (!isLoggedIn) return;
     if (activationState !== "idle") return;
+    // Wait for the authenticated actor to be built before proceeding
+    if (isActorFetching || !actor) return;
     // If already admin or previously activated, go straight to dashboard
     if (
       isAdmin === true ||
@@ -2379,7 +2405,22 @@ function IIConnectStep({ onDone }: { onDone: () => void }) {
     }
     // Otherwise try to activate
     runActivation();
-  }, [isLoggedIn, isAdmin, activationState, onDone, runActivation]);
+  }, [
+    isLoggedIn,
+    isAdmin,
+    activationState,
+    onDone,
+    runActivation,
+    actor,
+    isActorFetching,
+  ]);
+
+  const sharedCardStyle = {
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(30,94,255,0.08)",
+    backdropFilter: "blur(20px)",
+  } as React.CSSProperties;
 
   return (
     <div
@@ -2400,13 +2441,7 @@ function IIConnectStep({ onDone }: { onDone: () => void }) {
       <div className="relative w-full max-w-md">
         <div
           className="rounded-2xl p-8 sm:p-10 text-center"
-          style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.10)",
-            boxShadow:
-              "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(30,94,255,0.08)",
-            backdropFilter: "blur(20px)",
-          }}
+          style={sharedCardStyle}
         >
           {/* Brand */}
           <div className="inline-flex items-center gap-2 mb-6">
@@ -2502,6 +2537,86 @@ function IIConnectStep({ onDone }: { onDone: () => void }) {
               <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
                 Registering your account on the backend...
               </p>
+            </>
+          )}
+
+          {/* State: need-token — ask user to paste their Caffeine admin token */}
+          {activationState === "need-token" && (
+            <>
+              <div
+                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+                style={{
+                  background: "rgba(234,179,8,0.15)",
+                  border: "1px solid rgba(234,179,8,0.3)",
+                }}
+              >
+                <Lock className="h-8 w-8" style={{ color: "#fbbf24" }} />
+              </div>
+              <h2
+                className="text-2xl font-bold mb-2"
+                style={{ color: "#ffffff" }}
+              >
+                Admin Token Required
+              </h2>
+              <p
+                className="text-sm mb-5"
+                style={{ color: "rgba(255,255,255,0.55)" }}
+              >
+                To register your Internet Identity as the site admin, open this
+                app from your{" "}
+                <strong style={{ color: "#ffffff" }}>Caffeine dashboard</strong>{" "}
+                (the "Open" button). The admin token will be appended to the URL
+                automatically and you'll be logged in as admin.
+              </p>
+              <p
+                className="text-xs mb-5"
+                style={{ color: "rgba(255,255,255,0.35)" }}
+              >
+                Alternatively, if you already have the token, paste it below:
+              </p>
+              <form
+                onSubmit={handleTokenSubmit}
+                className="space-y-3 text-left"
+              >
+                <input
+                  type="text"
+                  data-ocid="admin.token_input"
+                  value={tokenInput}
+                  onChange={(e) => setTokenInput(e.target.value)}
+                  placeholder="Paste Caffeine admin token here"
+                  className="w-full h-11 rounded-xl px-4 text-sm outline-none"
+                  style={{
+                    background: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    color: "#ffffff",
+                  }}
+                />
+                <button
+                  type="submit"
+                  data-ocid="admin.token_submit_button"
+                  disabled={!tokenInput.trim()}
+                  className="w-full h-11 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
+                  style={{
+                    background: tokenInput.trim()
+                      ? "linear-gradient(135deg, #1E5EFF, #3b7dff)"
+                      : "rgba(255,255,255,0.08)",
+                    color: "#ffffff",
+                    cursor: tokenInput.trim() ? "pointer" : "not-allowed",
+                  }}
+                >
+                  <Wifi className="h-4 w-4" />
+                  Activate &amp; Reload
+                </button>
+              </form>
+              <button
+                type="button"
+                data-ocid="admin.ii_skip_button"
+                onClick={onDone}
+                className="mt-4 text-xs underline"
+                style={{ color: "rgba(255,255,255,0.3)", cursor: "pointer" }}
+              >
+                Skip — continue without backend write access
+              </button>
             </>
           )}
 
