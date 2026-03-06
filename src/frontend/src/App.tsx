@@ -6,6 +6,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
+import { SiWhatsapp } from "react-icons/si";
 import { Footer } from "./components/layout/Footer";
 import { Header } from "./components/layout/Header";
 import { CartProvider } from "./contexts/CartContext";
@@ -17,6 +18,7 @@ import { CheckoutPage } from "./pages/CheckoutPage";
 import { HomePage } from "./pages/HomePage";
 import { ProductPage } from "./pages/ProductPage";
 import { ShopPage } from "./pages/ShopPage";
+import { WhyRefurbishedPage } from "./pages/WhyRefurbishedPage";
 
 /* ─── Root Layout ─── */
 const rootRoute = createRootRoute({
@@ -29,6 +31,17 @@ const rootRoute = createRootRoute({
             <Outlet />
           </div>
           <Footer />
+          {/* Floating WhatsApp button */}
+          <a
+            href="https://wa.me/919310787939"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-ocid="whatsapp.float_button"
+            aria-label="Chat on WhatsApp"
+            className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+          >
+            <SiWhatsapp className="h-7 w-7 text-white" />
+          </a>
         </div>
         <Toaster position="bottom-right" richColors />
       </WishlistProvider>
@@ -79,6 +92,12 @@ const aboutRoute = createRoute({
   component: AboutPage,
 });
 
+const whyRefurbishedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/why-refurbished",
+  component: WhyRefurbishedPage,
+});
+
 /* ─── Router ─── */
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -88,6 +107,7 @@ const routeTree = rootRoute.addChildren([
   checkoutRoute,
   adminRoute,
   aboutRoute,
+  whyRefurbishedRoute,
 ]);
 
 const router = createRouter({ routeTree });

@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Order, OrderItem, Product, ShoppingItem } from "../backend.d";
-import { SAMPLE_PRODUCTS } from "../data/sampleProducts";
+import {
+  type ProductWithMarketPrice,
+  SAMPLE_PRODUCTS,
+} from "../data/sampleProducts";
 import { useActor } from "./useActor";
 
 /* ─── Products ─── */
 
 export function useProducts() {
   const { actor, isFetching } = useActor();
-  return useQuery<Product[]>({
+  return useQuery<ProductWithMarketPrice[]>({
     queryKey: ["products"],
     queryFn: async () => {
       if (!actor) return SAMPLE_PRODUCTS;
@@ -21,7 +24,7 @@ export function useProducts() {
 
 export function useProduct(id: bigint) {
   const { actor, isFetching } = useActor();
-  return useQuery<Product | null>({
+  return useQuery<ProductWithMarketPrice | null>({
     queryKey: ["product", id.toString()],
     queryFn: async () => {
       if (!actor) return SAMPLE_PRODUCTS.find((p) => p.id === id) ?? null;

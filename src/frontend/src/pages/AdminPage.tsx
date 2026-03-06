@@ -40,8 +40,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Inbox,
   Loader2,
   Lock,
+  Mail,
   Package,
   Pencil,
   Plus,
@@ -79,6 +81,7 @@ const EMPTY_PRODUCT = {
   condition: "Like New",
   price: 0,
   discountPrice: 0,
+  marketPrice: 0,
   description: "",
   stock: 1,
   imageUrl: "",
@@ -110,6 +113,7 @@ function ProductFormDialog({
           condition: initial.condition,
           price: initial.price,
           discountPrice: initial.discountPrice,
+          marketPrice: 0,
           description: initial.description,
           stock: Number(initial.stock),
           imageUrl: initial.imageUrl,
@@ -254,6 +258,15 @@ function ProductFormDialog({
                 placeholder="72000"
                 value={form.discountPrice || ""}
                 onChange={(e) => set("discountPrice", Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Market Price of New (₹)</Label>
+              <Input
+                type="number"
+                placeholder="150000"
+                value={form.marketPrice || ""}
+                onChange={(e) => set("marketPrice", Number(e.target.value))}
               />
             </div>
             <div className="space-y-1.5">
@@ -676,6 +689,85 @@ function OrdersTab() {
   );
 }
 
+function SpecialRequestsTab() {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Special requests submitted via the contact form.
+      </p>
+      <div className="rounded-xl border border-border overflow-hidden">
+        <Table data-ocid="admin.special_requests_table">
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead>Name</TableHead>
+              <TableHead className="hidden sm:table-cell">Email</TableHead>
+              <TableHead className="hidden md:table-cell">Phone</TableHead>
+              <TableHead className="hidden lg:table-cell">
+                Request Type
+              </TableHead>
+              <TableHead className="hidden lg:table-cell">Budget</TableHead>
+              <TableHead className="hidden lg:table-cell">Date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell
+                colSpan={6}
+                className="text-center py-12 text-muted-foreground"
+                data-ocid="admin.special_requests_empty_state"
+              >
+                <p className="font-medium mb-1">No special requests yet.</p>
+                <p className="text-xs">
+                  Requests submitted via the contact form will appear here once
+                  backend is updated.
+                </p>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function NewsletterTab() {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Emails subscribed to the newsletter.
+      </p>
+      <div className="rounded-xl border border-border overflow-hidden">
+        <Table data-ocid="admin.newsletter_table">
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead>Email</TableHead>
+              <TableHead className="hidden sm:table-cell">
+                Subscribed On
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell
+                colSpan={2}
+                className="text-center py-12 text-muted-foreground"
+                data-ocid="admin.newsletter_empty_state"
+              >
+                <p className="font-medium mb-1">
+                  No newsletter subscribers yet.
+                </p>
+                <p className="text-xs">
+                  Email subscriptions will appear here once backend is updated.
+                </p>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 export function AdminPage() {
   const { data: isAdmin, isLoading: isCheckingAdmin } = useIsAdmin();
   const { login, loginStatus } = useInternetIdentity();
@@ -737,7 +829,7 @@ export function AdminPage() {
       </div>
 
       <Tabs defaultValue="products">
-        <TabsList className="mb-6">
+        <TabsList className="mb-6 flex-wrap h-auto gap-1">
           <TabsTrigger
             value="products"
             className="gap-2"
@@ -754,6 +846,22 @@ export function AdminPage() {
             <ShoppingBag className="h-4 w-4" />
             Orders
           </TabsTrigger>
+          <TabsTrigger
+            value="special-requests"
+            className="gap-2"
+            data-ocid="admin.special_requests_tab"
+          >
+            <Inbox className="h-4 w-4" />
+            Special Requests
+          </TabsTrigger>
+          <TabsTrigger
+            value="newsletter"
+            className="gap-2"
+            data-ocid="admin.newsletter_tab"
+          >
+            <Mail className="h-4 w-4" />
+            Newsletter
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products">
@@ -762,6 +870,14 @@ export function AdminPage() {
 
         <TabsContent value="orders">
           <OrdersTab />
+        </TabsContent>
+
+        <TabsContent value="special-requests">
+          <SpecialRequestsTab />
+        </TabsContent>
+
+        <TabsContent value="newsletter">
+          <NewsletterTab />
         </TabsContent>
       </Tabs>
     </main>

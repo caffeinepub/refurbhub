@@ -34,16 +34,33 @@ export function Header() {
           <Link
             to="/"
             data-ocid="nav.logo_link"
-            className="flex items-center gap-2 font-display font-bold text-xl text-foreground hover:text-primary transition-colors"
+            className="flex items-center gap-2 font-display font-extrabold text-2xl text-foreground hover:opacity-90 transition-opacity"
           >
-            <span className="w-8 h-8 brand-gradient rounded-lg flex items-center justify-center text-white text-sm font-bold">
+            <span className="w-9 h-9 brand-gradient rounded-lg flex items-center justify-center text-white text-base font-bold shadow-md">
               R
             </span>
-            <span>RefurbHub</span>
+            <span>
+              <span className="text-foreground">Refurb</span>
+              <span className="gradient-text"> Hub</span>
+            </span>
           </Link>
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
+            <Link
+              to="/"
+              data-ocid="nav.home_link"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
+            >
+              Home
+            </Link>
+            <Link
+              to="/about"
+              data-ocid="nav.about_link"
+              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
+            >
+              About
+            </Link>
             <Link
               to="/shop"
               data-ocid="nav.shop_link"
@@ -51,12 +68,13 @@ export function Header() {
             >
               Shop
             </Link>
-            <Link
-              to="/about"
+            <a
+              href="/#contact"
+              data-ocid="nav.contact_link"
               className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
             >
-              About
-            </Link>
+              Contact Us
+            </a>
           </nav>
 
           {/* Actions */}
@@ -144,11 +162,12 @@ export function Header() {
             >
               <nav className="py-3 flex flex-col gap-1">
                 <Link
-                  to="/shop"
+                  to="/"
                   onClick={() => setMenuOpen(false)}
+                  data-ocid="nav.mobile_home_link"
                   className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
                 >
-                  Shop
+                  Home
                 </Link>
                 <Link
                   to="/about"
@@ -157,6 +176,24 @@ export function Header() {
                 >
                   About
                 </Link>
+                <Link
+                  to="/shop"
+                  onClick={() => setMenuOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
+                >
+                  Shop
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    window.location.href = "/#contact";
+                  }}
+                  data-ocid="nav.mobile_contact_link"
+                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted text-left"
+                >
+                  Contact Us
+                </button>
                 <Link
                   to="/cart"
                   onClick={() => setMenuOpen(false)}

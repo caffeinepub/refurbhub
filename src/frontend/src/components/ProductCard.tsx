@@ -2,14 +2,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { Heart, ShoppingCart } from "lucide-react";
+import {
+  BadgeCheck,
+  CheckCircle2,
+  Heart,
+  ShieldCheck,
+  ShoppingCart,
+} from "lucide-react";
 import { toast } from "sonner";
-import type { Product } from "../backend.d";
 import { useCart } from "../contexts/CartContext";
 import { useWishlist } from "../contexts/WishlistContext";
+import type { ProductWithMarketPrice } from "../data/sampleProducts";
 
 interface ProductCardProps {
-  product: Product;
+  product: ProductWithMarketPrice;
   index?: number;
 }
 
@@ -61,7 +67,7 @@ export function ProductCard({ product, index = 1 }: ProductCardProps) {
   return (
     <article
       data-ocid={`shop.product_card.${index}`}
-      className="group relative bg-card rounded-2xl overflow-hidden shadow-card card-hover border border-border/50"
+      className="group relative bg-card rounded-2xl overflow-hidden shadow-card border border-border/50 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1.5"
     >
       {/* Wishlist button */}
       <button
@@ -80,8 +86,8 @@ export function ProductCard({ product, index = 1 }: ProductCardProps) {
 
       {discount > 0 && (
         <div className="absolute top-3 left-3 z-10">
-          <span className="bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5 rounded-full">
-            -{discount}%
+          <span className="bg-rose-500 text-white font-extrabold text-xs px-2.5 py-1 rounded-full shadow-md">
+            Save {discount}%
           </span>
         </div>
       )}
@@ -95,7 +101,7 @@ export function ProductCard({ product, index = 1 }: ProductCardProps) {
           <img
             src={product.imageUrl}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
             loading="lazy"
           />
         </div>
@@ -130,6 +136,22 @@ export function ProductCard({ product, index = 1 }: ProductCardProps) {
             </span>
             <span className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
               {product.storage}
+            </span>
+          </div>
+
+          {/* Trust badges */}
+          <div className="flex flex-wrap gap-1 pt-1">
+            <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
+              <CheckCircle2 className="h-2.5 w-2.5" />
+              Certified
+            </span>
+            <span className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
+              <ShieldCheck className="h-2.5 w-2.5" />
+              Warranty
+            </span>
+            <span className="inline-flex items-center gap-1 text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-full font-medium">
+              <BadgeCheck className="h-2.5 w-2.5" />
+              Tested
             </span>
           </div>
 

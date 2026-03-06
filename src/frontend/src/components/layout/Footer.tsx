@@ -33,11 +33,12 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1 space-y-4">
             <div className="flex items-center gap-2">
-              <span className="w-8 h-8 brand-gradient rounded-lg flex items-center justify-center text-white text-sm font-bold">
+              <span className="w-9 h-9 brand-gradient rounded-lg flex items-center justify-center text-white text-base font-bold shadow-md">
                 R
               </span>
-              <span className="font-display font-bold text-xl text-background">
-                RefurbHub
+              <span className="font-display font-extrabold text-2xl">
+                <span className="text-background">Refurb</span>
+                <span className="text-primary"> Hub</span>
               </span>
             </div>
             <p className="text-sm text-background/60 leading-relaxed">
@@ -148,7 +149,7 @@ export function Footer() {
               <li className="flex items-start gap-3">
                 <Phone className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <span className="text-sm text-background/60">
-                  +91 9876 543 210
+                  +91 93107 87939
                 </span>
               </li>
               <li className="flex items-start gap-3">
@@ -163,7 +164,7 @@ export function Footer() {
 
         <div className="mt-12 pt-8 border-t border-background/10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-background/40">
-            © {currentYear} RefurbHub. All rights reserved.
+            © {currentYear} Refurb Hub. All rights reserved.
           </p>
           <p className="text-sm text-background/40 flex items-center gap-1">
             Built with{" "}

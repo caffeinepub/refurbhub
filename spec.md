@@ -2,126 +2,55 @@
 
 ## Current State
 
-The homepage (HomePage.tsx) has:
-- A single static hero section (text + one image, no carousel)
-- Trust badges bar (4 badges)
-- Featured products grid (6 products from backend)
-- Why Buy Refurbished section (3 cards: Certified Quality, 1-Year Warranty, Fully Tested)
-- Customer reviews (3 cards)
-- Newsletter signup section
-- Footer with brand, quick links, policies, contact columns
-
-Missing sections compared to the requested refinement:
-- No hero carousel (5 slides with images)
-- No "Why Refurbished is Better Than Brand New" section (5 points)
-- No "Customer Protection Policies" section (5 policies)
-- No "Why Buy From Us" section (4 points with icons)
-- No "Brands We Offer" section (HP, Dell, Lenovo, Apple)
-- No "How It Works" section (4 steps)
-- No "Special Requests / Bulk Orders / Custom PC Builds" section with contact form
-- No "Limited Deals" section with discount badges
-- No final CTA section with dark gradient
-- Footer missing: Warranty & Returns, Buyback Program, Shipping Information, Bulk Orders, Contact Support columns
+The site is a multi-page refurbished laptop marketplace with:
+- **AboutPage.tsx**: Hero section with centered text layout, stats strip, process steps, values grid, sustainability strip, CTA. The hero is text-only (no visual element on the right), uses `bg-gradient-to-br from-slate-50` background, has two buttons (Browse Laptops, Contact Us). The decorative layout currently has no image split.
+- **ShopPage.tsx**: Left sidebar filter panel (Brand, RAM, Storage, Condition, Price Range), category tabs row, search+sort bar, 3-col product grid. Filter sections use flat `FilterSection` components with basic checkboxes. No collapsible accordion sections. Filter panel is in a plain card.
+- **ProductCard.tsx**: Has image, brand label, product name, condition badge, spec chips (processor, RAM, storage), price with strikethrough, Add to Cart button. Discount % badge top-left. Has wishlist button. Card has `card-hover` and `shadow-card`. Missing trust indicator badges (Certified Refurbished, Warranty Available, Tested). Save % badge text currently reads "-55%" not "Save 55%". No "View Details" link prominently.
+- **HomePage.tsx**: Multiple sections already implemented with premium styling. Featured products section has no heading (previously removed). Trust badges, categories, trending, why-refurbished, protection policies, testimonials, why buy from us, special request form, deals, final CTA, newsletter all present.
+- Generated images: Product images in `/assets/generated/` use `product-hp-elitebook.dim_600x400.jpg` etc. New product-card images now available at `product-card-hp-elitebook.dim_600x450.jpg` etc. New about hero image at `about-hero-workspace.dim_800x600.jpg`.
 
 ## Requested Changes (Diff)
 
 ### Add
-
-1. **Hero Carousel (5 slides)** replacing the static hero:
-   - Slide 1: Headline "Premium Refurbished Laptops", subheading "Business-Class Performance at Unbelievable Prices", description, CTA "Shop Now | View Deals", image: `/assets/generated/hero-slide1-premium-workspace.dim_1400x700.jpg`
-   - Slide 2: Headline "Flagship Performance. Fraction of the Price.", description + highlights (i5/i7, SSD, battery), CTA "Browse Collection", image: `/assets/generated/hero-slide2-laptop-closeup.dim_1400x700.jpg`
-   - Slide 3: Headline "Professionally Refurbished. Carefully Tested.", description + 4 bullet points (diagnostics, battery, SSD, OS), CTA "Learn More", image: `/assets/generated/hero-slide3-technician-lab.dim_1400x700.jpg`
-   - Slide 4: Headline "Save Up to 70% on Premium Laptops", description, CTA "View Today's Deals", image: `/assets/generated/hero-slide4-laptop-showroom.dim_1400x700.jpg`
-   - Slide 5: Headline "Upgrade Your Laptop. Reduce E-Waste.", description, CTA "Start Shopping", image: `/assets/generated/hero-slide5-eco-workspace.dim_1400x700.jpg`
-   - Auto-advance every 5s, with dot indicators and prev/next arrows
-
-2. **Featured Products Section** (keep existing but update product card images):
-   - Use generated product images: `/assets/generated/product-hp-elitebook.dim_600x400.jpg`, `/assets/generated/product-dell-latitude.dim_600x400.jpg`, `/assets/generated/product-lenovo-thinkpad.dim_600x400.jpg`, `/assets/generated/product-macbook-pro.dim_600x400.jpg`
-   - Title: "Featured Laptops" with subtitle referencing brand names
-
-3. **Why Refurbished is the Smarter Choice section** (replace/expand existing "Why Buy Refurbished"):
-   - Headline: "Why Refurbished is the Smarter Choice"
-   - 5 cards: Better Value (30-70% lower cost), Business-Class Build Quality, Fully Tested & Certified, Eco-Friendly Choice, Same Real-World Performance
-   - Right side: comparison image `/assets/generated/why-refurbished-comparison.dim_800x500.jpg`
-   - Split layout: left text cards, right image
-
-4. **Customer Protection Policies section**:
-   - Headline: "Buy With Complete Confidence"
-   - 5 policy cards with icons: 7 Day Easy Return, 30 Day Replacement, Lifetime Buyback & Upgrade, Lifetime Maintenance Support, Extended Warranty
-   - Image: `/assets/generated/protection-trust-icons.dim_800x400.png`
-
-5. **Why Buy From Us section** (replace/expand existing WHY_BUY):
-   - 4 points: Certified Refurbished Devices, Unbelievable Prices (70% savings), Premium Business Laptops, Reliable Support
-   - Minimal icon grid layout
-
-6. **Brands We Offer section**:
-   - Display HP, Dell, Lenovo, Apple brand names as styled logo cards
-   - Subtle gradient background
-
-7. **How It Works section** (4 steps):
-   - Step 1: We Source Corporate Laptops
-   - Step 2: Devices Undergo Professional Testing
-   - Step 3: Hardware is Refurbished and Optimized
-   - Step 4: Devices Are Delivered at Unbelievable Prices
-   - Infographic image: `/assets/generated/how-it-works-infographic.dim_1000x400.jpg`
-   - Horizontal step cards with numbered indicators and connecting lines
-
-8. **Special Requests / Bulk Orders section** with contact form:
-   - Headline: "Have a Special Requirement?"
-   - Subheading about bulk orders, specific models, custom PC builds
-   - Form fields: Name, Email, Phone Number, Type of Request (dropdown: Bulk Laptop Order / Specific Laptop Model / Custom PC Build / Business Purchase / Other), Budget Range, Message / Requirements
-   - CTA: "Request a Quote"
-   - Side image: `/assets/generated/bulk-orders-workstation.dim_800x500.jpg`
-   - Form submits with toast confirmation
-
-9. **Customer Testimonials section** (update/expand existing):
-   - 3 testimonials: Dell Latitude i7 quote, excellent condition+fast delivery, great value vs new
-   - Clean card layout
-
-10. **Limited Deals section**:
-    - Headline: "Today's Best Laptop Deals"
-    - 3 large deal cards with prominent discount badges: HP EliteBook (Save 55%), Dell Latitude (Save 60%), Lenovo ThinkPad (Save 50%)
-    - Spotlight image: `/assets/generated/deals-spotlight-display.dim_800x500.jpg`
-    - Large colorful discount badges
-
-11. **Final CTA section**:
-    - Dark premium gradient background
-    - Headline: "Upgrade Your Laptop Today"
-    - Subheading: "Premium refurbished laptops at prices you won't believe."
-    - CTA button: "Shop Now" linking to /shop
+- **AboutPage hero**: Split two-column layout with text on left and laptop workspace image on right (`/assets/generated/about-hero-workspace.dim_800x600.jpg`). Add subtle background gradient/abstract shapes. Primary "Browse Laptops" button as bright blue rounded with shadow + hover animation. Secondary "Contact Us" as outline with hover fill. Keep "OUR STORY" uppercase label with letter-spacing above the headline.
+- **AboutPage**: Add a full **Refurbishment Process** section showing 5 steps horizontally: Corporate Laptop Sourcing → 40+ Point Hardware Testing → Component Replacement → Fresh OS Installation → Final Quality Inspection. Steps connected with arrows/lines. Use icons for each step.
+- **ShopPage filters**: Wrap each filter group (Brand, RAM, Storage, Condition, Price Range) in a collapsible `Accordion` component with ChevronDown icons. Increase spacing between items. Add modern styled checkboxes with hover states.
+- **ProductCard**: Add trust indicator badges row (Certified Refurbished, Warranty Available, Tested Quality) in a small strip below specs. Change discount badge label from `-55%` to `Save 55%` format. Add a subtle "View Details" secondary link. Enhance hover: image zooms more noticeably, card shadow increases on hover with scale effect.
+- **ShopPage**: Add a page hero banner at the top (thin, visually rich) with gradient background, headline "Shop Premium Refurbished Laptops" and short description. Improve overall spacing and visual polish.
+- **ProductCard**: Ensure product images use the newer cleaner product card images where possible (swap to `/assets/generated/product-card-*.dim_600x450.jpg` in SHOWCASE_PRODUCTS and DEALS arrays).
 
 ### Modify
-
-1. **Footer** -- Expand to include more link columns:
-   - About Us
-   - Warranty & Returns
-   - Buyback Program
-   - Shipping Information
-   - Bulk Orders
-   - Contact Support
-   - Social Media Links (keep existing)
-   - Maintain dark, minimal, premium style
-
-2. **Trust Badges** -- Update to reflect new policies: 7 Day Returns, 30 Day Replacement, Lifetime Buyback, Lifetime Support
-
-3. **Newsletter section** -- Keep but move to before the final CTA
+- **AboutPage hero**: Change from centered-only layout to a **responsive two-column split** (left: text+CTAs, right: image). Reduce paragraph max-width to ~`max-w-lg`. Increase `leading-relaxed` to `leading-loose` on the description. Replace flat white background with a richer `bg-gradient-to-br from-slate-50 via-white to-blue-50` + subtle abstract shape decorations (circles/blobs) positioned in background using absolute positioned divs with blur.
+- **AboutPage hero buttons**: Primary button: `bg-primary shadow-md hover:shadow-lg hover:scale-[1.02]` transition with rounded-full or rounded-xl shape. Outline button: `border-2 border-primary/50 text-primary hover:bg-primary hover:text-white` transition.
+- **ShopPage FiltersPanel**: Replace `Separator`-separated flat sections with `Accordion` with `AccordionItem`, `AccordionTrigger`, `AccordionContent`. Each filter group gets its own accordion item, open by default. The sidebar card gets a cleaner look with more padding.
+- **ProductCard discount badge**: Change text from `"-{discount}%"` to `"Save {discount}%"` and use a stronger `bg-rose-500` color with `text-white font-extrabold`.
+- **HomePage SHOWCASE_PRODUCTS and DEALS images**: Update image paths to use the new product-card images for cleaner white-background product shots.
+- **ShopPage grid**: Ensure desktop grid is `xl:grid-cols-3` (already is) but add `2xl:grid-cols-4` for very wide screens.
 
 ### Remove
-
-- The old static hero section (replaced by carousel)
+- Nothing removed in this pass.
 
 ## Implementation Plan
 
-1. Replace static hero in HomePage.tsx with a full-width auto-advancing carousel component (HeroCarousel.tsx) using the 5 generated slide images, with dot indicators, prev/next arrows, and smooth slide transitions
-2. Keep existing featured products grid but update section heading and trust feel
-3. Replace old "Why Buy" section with expanded 5-point "Why Refurbished is the Smarter Choice" section with comparison image
-4. Add "Customer Protection Policies" section with 5 policy cards after Why Refurbished
-5. Add simplified "Why Buy From Us" icon grid section
-6. Add "Brands We Offer" section with HP, Dell, Lenovo, Apple styled cards
-7. Add "How It Works" 4-step section with infographic image
-8. Add "Special Requests" section with contact form (controlled form, toast on submit)
-9. Update testimonials section with the 3 requested quotes
-10. Add "Limited Deals" section with 3 deal cards and discount badges
-11. Add final dark CTA section before newsletter
-12. Update Footer.tsx to add Warranty & Returns, Buyback Program, Shipping Information, Bulk Orders, Contact Support columns
-13. Update trust badges to reflect the new 7-day return and 30-day replacement policy
+1. **AboutPage.tsx**:
+   - Redesign hero section: two-column layout (`grid md:grid-cols-2 gap-12 items-center`), left column has OUR STORY label + headline + description + buttons, right column has the workspace image with rounded corners and shadow.
+   - Improve hero background: add decorative abstract blob shapes (absolute positioned divs with `rounded-full blur-3xl bg-primary/5` etc.) behind the content.
+   - Restyle buttons: primary with shadow and hover scale, outline with fill-on-hover.
+   - Add Refurbishment Process section between Stats and Our Process: 5 steps in a horizontal scrollable row with numbered circles, step titles, and connecting arrows/lines. Mobile: vertical stack.
+
+2. **ShopPage.tsx**:
+   - Import `Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent` from `@/components/ui/accordion`.
+   - Replace `FilterSection` + `Separator` pattern in `FiltersPanel` with Accordion items. Each accordion item: Brand, RAM, Storage, Condition, Price Range. Default open.
+   - Add a shop page header banner (thin strip) with gradient background, headline, description above the category tabs.
+   - Improve filter panel card styling: `shadow-lg border border-border/60`.
+   - Add `2xl:grid-cols-4` to product grid.
+
+3. **ProductCard.tsx**:
+   - Change discount badge text from `"-{discount}%"` to `"Save {discount}%"`.
+   - After specs chips row, add a trust badges strip: small pill badges for "✓ Certified", "🛡 Warranty", "✓ Tested".
+   - Enhance hover animation: add explicit `hover:shadow-xl hover:-translate-y-1` and `hover:scale-[1.02]` classes to the card.
+   - Add a small "View Details →" text link below the product name area.
+
+4. **HomePage.tsx**:
+   - Update `SHOWCASE_PRODUCTS` images to use `/assets/generated/product-card-hp-elitebook.dim_600x450.jpg` etc.
+   - Update `DEALS` images similarly.

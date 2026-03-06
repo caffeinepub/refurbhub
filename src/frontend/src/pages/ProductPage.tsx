@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { ProductCard } from "../components/ProductCard";
 import { useCart } from "../contexts/CartContext";
 import { useWishlist } from "../contexts/WishlistContext";
+import type { ProductWithMarketPrice } from "../data/sampleProducts";
 import { useProduct, useProducts } from "../hooks/useQueries";
 
 function formatPrice(n: number) {
@@ -46,6 +47,7 @@ export function ProductPage() {
   const productId = BigInt(id || "0");
   const { data: product, isLoading } = useProduct(productId);
   const { data: allProducts = [] } = useProducts();
+  const typedProduct = product as ProductWithMarketPrice | null | undefined;
   const { addToCart } = useCart();
   const { toggleWishlist, isWishlisted } = useWishlist();
 
@@ -177,6 +179,38 @@ export function ProductPage() {
               </>
             )}
           </div>
+
+          {/* Market Price Comparison */}
+          {typedProduct?.marketPrice && typedProduct.marketPrice > 0 && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">
+                Compare vs New
+              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    New retail price:
+                  </p>
+                  <p className="font-bold text-lg text-foreground line-through decoration-red-400">
+                    {formatPrice(typedProduct.marketPrice)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-emerald-700">You save</p>
+                  <p className="font-extrabold text-2xl text-emerald-600">
+                    {Math.round(
+                      ((typedProduct.marketPrice -
+                        (product.discountPrice || product.price)) /
+                        typedProduct.marketPrice) *
+                        100,
+                    )}
+                    % OFF
+                  </p>
+                  <p className="text-xs text-emerald-600">vs buying new</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Specs */}
           <div className="bg-muted/50 rounded-2xl overflow-hidden">

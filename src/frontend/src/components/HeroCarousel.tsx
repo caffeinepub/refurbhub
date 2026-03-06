@@ -28,12 +28,13 @@ interface Slide {
 const SLIDES: Slide[] = [
   {
     id: 1,
-    image: "/assets/generated/hero-slide1-premium-workspace.dim_1400x700.jpg",
+    image:
+      "/assets/generated/hero-slide1-premium-workspace-v2.dim_1400x700.jpg",
     badge: "✓ 500+ Happy Customers",
     headline: "Premium Refurbished Laptops",
     subheading: "Business-Class Performance at Unbelievable Prices",
     description:
-      "Professionally tested, certified, and restored laptops from top global brands.",
+      "Professionally tested, certified, and restored laptops — HP, Dell, Lenovo, Apple.",
     ctas: [
       { label: "Shop Now", href: "/shop", variant: "primary" },
       { label: "View Deals", href: "/shop", variant: "outline" },
@@ -41,27 +42,27 @@ const SLIDES: Slide[] = [
   },
   {
     id: 2,
-    image: "/assets/generated/hero-slide2-laptop-closeup.dim_1400x700.jpg",
+    image: "/assets/generated/hero-slide2-laptop-closeup-v2.dim_1400x700.jpg",
     headline: "Flagship Performance. Fraction of the Price.",
     description:
-      "Get high-end corporate laptops with powerful processors, SSD storage, and professional-grade build quality.",
+      "High-end corporate laptops with Intel i5/i7, fast SSD, and premium build quality — at 60% off.",
     highlights: [
       "Intel i5/i7 Processors",
-      "Fast SSD Storage",
-      "Long Battery Life",
+      "Fast NVMe SSD",
+      "12hr+ Battery Life",
     ],
     ctas: [{ label: "Browse Collection", href: "/shop", variant: "primary" }],
   },
   {
     id: 3,
-    image: "/assets/generated/hero-slide3-technician-lab.dim_1400x700.jpg",
-    badge: "Certified Quality",
-    headline: "Professionally Refurbished. Carefully Tested.",
+    image: "/assets/generated/hero-slide3-technician-lab-v2.dim_1400x700.jpg",
+    badge: "ISO Certified Quality",
+    headline: "Professionally Refurbished. Rigorously Tested.",
     description:
-      "Every laptop undergoes multi-point inspection to ensure performance, reliability, and durability.",
+      "Every laptop passes a 30-point inspection covering hardware, battery, display, and OS.",
     bullets: [
       "Hardware Diagnostics",
-      "Battery Testing",
+      "Battery Capacity Test",
       "SSD Health Check",
       "Fresh OS Installation",
     ],
@@ -69,20 +70,20 @@ const SLIDES: Slide[] = [
   },
   {
     id: 4,
-    image: "/assets/generated/hero-slide4-laptop-showroom.dim_1400x700.jpg",
+    image: "/assets/generated/hero-slide4-laptop-showroom-v2.dim_1400x700.jpg",
     headline: "Save Up to 70% on Premium Laptops",
     accentText: "70% OFF",
     description:
-      "Enterprise-grade machines used by corporations, now available at unbeatable prices.",
+      "Enterprise-grade machines from Fortune 500 companies — now priced for everyone.",
     ctas: [{ label: "View Today's Deals", href: "/shop", variant: "primary" }],
   },
   {
     id: 5,
-    image: "/assets/generated/hero-slide5-eco-workspace.dim_1400x700.jpg",
-    badge: "🌿 Eco-Friendly",
-    headline: "Upgrade Your Laptop. Reduce E-Waste.",
+    image: "/assets/generated/hero-slide5-eco-workspace-v2.dim_1400x700.jpg",
+    badge: "🌿 Eco-Friendly Choice",
+    headline: "Upgrade Smart. Reduce E-Waste.",
     description:
-      "Refurbished technology helps the planet while giving you powerful machines at affordable prices.",
+      "Every refurbished laptop saves 300kg of CO₂ emissions. Good for your wallet and the planet.",
     ctas: [{ label: "Start Shopping", href: "/shop", variant: "primary" }],
   },
 ];
