@@ -106,7 +106,7 @@ export function ProductCard({ product, index = 1 }: ProductCardProps) {
           />
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-2">
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
@@ -140,7 +140,7 @@ export function ProductCard({ product, index = 1 }: ProductCardProps) {
           </div>
 
           {/* Trust badges */}
-          <div className="flex flex-wrap gap-1 pt-1">
+          <div className="flex flex-wrap gap-1">
             <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
               <CheckCircle2 className="h-2.5 w-2.5" />
               Certified
@@ -155,7 +155,7 @@ export function ProductCard({ product, index = 1 }: ProductCardProps) {
             </span>
           </div>
 
-          <div className="flex items-end justify-between pt-1">
+          <div className="flex items-end justify-between">
             <div>
               <span className="font-display font-bold text-foreground text-lg">
                 {formatPrice(product.discountPrice || product.price)}

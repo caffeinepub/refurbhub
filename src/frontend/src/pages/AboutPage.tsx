@@ -120,7 +120,7 @@ export function AboutPage() {
   return (
     <main>
       {/* Hero — two-column split */}
-      <section className="bg-gradient-to-br from-slate-50 via-white to-blue-50/60 py-20 lg:py-28 overflow-hidden relative">
+      <section className="bg-gradient-to-br from-slate-50 via-white to-blue-50/60 py-12 lg:py-16 overflow-hidden relative">
         {/* Decorative blurred shapes */}
         <div className="absolute top-10 right-10 w-72 h-72 bg-blue-200/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-56 h-56 bg-indigo-100/30 rounded-full blur-3xl pointer-events-none" />
@@ -141,7 +141,7 @@ export function AboutPage() {
             </motion.p>
             <motion.h1
               variants={fadeUp}
-              className="font-display font-bold text-4xl sm:text-5xl text-foreground leading-tight"
+              className="font-display font-bold text-3xl sm:text-4xl text-foreground leading-tight"
             >
               Making Premium Laptops{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400">
@@ -216,9 +216,9 @@ export function AboutPage() {
       </section>
 
       {/* Refurbishment Process */}
-      <section className="bg-slate-50/60 py-20">
+      <section className="bg-slate-50/60 py-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
+          <div className="text-center mb-7">
             <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-2">
               How We Do It
             </p>
@@ -266,7 +266,7 @@ export function AboutPage() {
       </section>
 
       {/* Our Process */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
         <div className="grid md:grid-cols-2 gap-12 items-start">
           <motion.div
             initial="hidden"
@@ -376,9 +376,9 @@ export function AboutPage() {
       </section>
 
       {/* Values */}
-      <section className="bg-slate-50 py-20">
+      <section className="bg-slate-50 py-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
+          <div className="text-center mb-7">
             <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-2">
               What We Stand For
             </p>
@@ -456,7 +456,7 @@ export function AboutPage() {
       </section>
 
       {/* CTA */}
-      <section className="max-w-2xl mx-auto px-4 sm:px-6 py-20 text-center">
+      <section className="max-w-2xl mx-auto px-4 sm:px-6 py-12 text-center">
         <h2 className="font-display font-bold text-3xl text-foreground mb-4">
           Ready to Find Your Perfect Laptop?
         </h2>

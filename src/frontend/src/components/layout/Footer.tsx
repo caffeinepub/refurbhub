@@ -38,7 +38,7 @@ export function Footer() {
               </span>
               <span className="font-display font-extrabold text-2xl">
                 <span className="text-background">Refurb</span>
-                <span className="text-primary"> Hub</span>
+                <span style={{ color: "#4A90D9" }}> Hub</span>
               </span>
             </div>
             <p className="text-sm text-background/60 leading-relaxed">

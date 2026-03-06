@@ -363,7 +363,7 @@ export function ShopPage() {
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
       {/* Shop header banner */}
-      <div className="mb-8 rounded-2xl overflow-hidden relative bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 px-6 py-8 sm:py-10">
+      <div className="mb-8 rounded-2xl overflow-hidden relative bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 px-6 py-6 sm:py-8">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,oklch(0.45_0.18_264/0.2),transparent_60%)]" />
         <div className="relative z-10">
           <p className="text-xs font-semibold text-primary/80 uppercase tracking-widest mb-2">
@@ -548,7 +548,7 @@ export function ShopPage() {
           {/* Product Grid */}
           <div className="flex-1 min-w-0">
             {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {["s1", "s2", "s3", "s4", "s5", "s6"].map((k) => (
                   <div key={k} className="rounded-2xl overflow-hidden">
                     <Skeleton className="aspect-[4/3] w-full" />
@@ -579,7 +579,7 @@ export function ShopPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {filtered.map((p, i) => (
                   <ProductCard
                     key={p.id.toString()}

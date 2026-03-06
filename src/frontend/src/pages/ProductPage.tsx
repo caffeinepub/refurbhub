@@ -6,12 +6,17 @@ import { cn } from "@/lib/utils";
 import { Link, useParams } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  ArrowUpRight,
+  BadgeCheck,
   Check,
   Heart,
   Package,
+  RotateCcw,
   Shield,
+  ShieldCheck,
   ShoppingCart,
   Truck,
+  Wrench,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
@@ -234,6 +239,59 @@ export function ProductPage() {
             </table>
           </div>
 
+          {/* Our Guarantees */}
+          <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4">
+            <p className="text-xs font-semibold text-blue-700 uppercase tracking-widest mb-3">
+              Our Guarantees
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                {
+                  Icon: ShieldCheck,
+                  title: "7-Day Easy Return",
+                  desc: "Not satisfied? Return within 7 days of delivery, no questions asked.",
+                },
+                {
+                  Icon: RotateCcw,
+                  title: "30-Day Replacement",
+                  desc: "Any functional issue in 30 days? We replace it, hassle-free.",
+                },
+                {
+                  Icon: ArrowUpRight,
+                  title: "Lifetime Buyback & Upgrade",
+                  desc: "Return your old laptop anytime and get credit toward a newer device.",
+                },
+                {
+                  Icon: Wrench,
+                  title: "Lifetime Maintenance Support",
+                  desc: "Free technical support and maintenance guidance for the lifetime of your device.",
+                },
+                {
+                  Icon: BadgeCheck,
+                  title: "Extended Warranty Available",
+                  desc: "Optional extended warranty plans at affordable pricing for long-term peace of mind.",
+                },
+              ].map(({ Icon, title, desc }) => (
+                <div
+                  key={title}
+                  className="flex gap-3 items-start p-3 bg-white rounded-xl border border-blue-50 shadow-sm"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <Icon className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground leading-tight">
+                      {title}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      {desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Stock & Warranty */}
           <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-2 text-sm text-success">
@@ -312,6 +370,83 @@ export function ProductPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Full Technical Specifications */}
+      <section className="mb-16">
+        <h2 className="font-display font-bold text-2xl text-foreground mb-6">
+          Technical Specifications
+        </h2>
+        <div className="rounded-2xl border border-border overflow-hidden">
+          <table className="w-full text-sm">
+            <tbody>
+              {[
+                { label: "Product Name", value: product.name },
+                { label: "Brand", value: product.brand },
+                { label: "Processor", value: product.processor },
+                { label: "RAM", value: product.ram },
+                { label: "Storage", value: product.storage },
+                { label: "Condition Grade", value: product.condition },
+                {
+                  label: "Selling Price",
+                  value: formatPrice(product.discountPrice || product.price),
+                },
+                {
+                  label: "Original Price",
+                  value: formatPrice(product.price),
+                },
+                {
+                  label: "Market Price (New)",
+                  value:
+                    typedProduct?.marketPrice && typedProduct.marketPrice > 0
+                      ? formatPrice(typedProduct.marketPrice)
+                      : "Contact for details",
+                },
+                {
+                  label: "Savings vs New",
+                  value:
+                    typedProduct?.marketPrice && typedProduct.marketPrice > 0
+                      ? `${Math.round(((typedProduct.marketPrice - (product.discountPrice || product.price)) / typedProduct.marketPrice) * 100)}% savings vs retail`
+                      : "—",
+                },
+                { label: "Warranty", value: "1 Year Warranty Included" },
+                { label: "Display", value: "Contact for details" },
+                {
+                  label: "Graphics",
+                  value: "Integrated Graphics (Contact for details)",
+                },
+                {
+                  label: "Operating System",
+                  value: "Windows 11 Pro / Windows 10 Pro",
+                },
+                { label: "Battery", value: "Contact for details" },
+                { label: "Weight", value: "Contact for details" },
+                {
+                  label: "Ports",
+                  value: "USB, HDMI, USB-C (Contact for details)",
+                },
+                {
+                  label: "Refurbishment Grade",
+                  value: `${product.condition} — Professionally tested and certified`,
+                },
+                {
+                  label: "Stock Available",
+                  value: `${product.stock.toString()} units`,
+                },
+              ].map(({ label, value }, i) => (
+                <tr
+                  key={label}
+                  className={i % 2 === 0 ? "bg-muted/30" : "bg-background"}
+                >
+                  <td className="px-4 py-3 font-medium text-muted-foreground w-2/5 border-r border-border">
+                    {label}
+                  </td>
+                  <td className="px-4 py-3 text-foreground">{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {/* Similar Products */}
       {similar.length > 0 && (

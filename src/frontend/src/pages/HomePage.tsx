@@ -1,7 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -10,16 +9,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   ArrowUpRight,
   BadgeCheck,
   Box,
+  Check,
   ChevronRight,
   Cpu,
-  Flame,
   Headphones,
   Laptop,
   Leaf,
@@ -49,17 +47,6 @@ const stagger = {
 };
 
 /* ─── Data ─── */
-
-const TRUST_BADGES = [
-  { icon: RotateCcw, label: "7 Day Easy Return", sub: "Hassle-free policy" },
-  {
-    icon: ShieldCheck,
-    label: "30 Day Replacement",
-    sub: "Functional guarantee",
-  },
-  { icon: ArrowUpRight, label: "Lifetime Buyback", sub: "Upgrade anytime" },
-  { icon: Headphones, label: "Lifetime Support", sub: "Always here for you" },
-];
 
 const SHOWCASE_PRODUCTS = [
   {
@@ -150,41 +137,41 @@ const PROTECTION_POLICIES = [
     icon: ShieldCheck,
     title: "7 Day Easy Return",
     desc: "Return within 7 days of delivery if not satisfied.",
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-    border: "border-blue-100",
+    color: "text-[#1E5EFF]",
+    bg: "bg-[#F4F6FA]",
+    border: "border-[#1E5EFF]/10",
   },
   {
     icon: RotateCcw,
     title: "30 Day Replacement",
     desc: "30-day hassle-free replacement for any functional issue.",
-    color: "text-violet-600",
-    bg: "bg-violet-50",
-    border: "border-violet-100",
+    color: "text-[#1E5EFF]",
+    bg: "bg-[#F4F6FA]",
+    border: "border-[#1E5EFF]/10",
   },
   {
     icon: ArrowUpRight,
     title: "Lifetime Buyback & Upgrade",
     desc: "Return your old laptop and get credit toward a newer device.",
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
-    border: "border-emerald-100",
+    color: "text-[#1E5EFF]",
+    bg: "bg-[#F4F6FA]",
+    border: "border-[#1E5EFF]/10",
   },
   {
     icon: Wrench,
     title: "Lifetime Maintenance Support",
     desc: "Lifetime technical support and maintenance guidance.",
-    color: "text-amber-600",
-    bg: "bg-amber-50",
-    border: "border-amber-100",
+    color: "text-[#1E5EFF]",
+    bg: "bg-[#F4F6FA]",
+    border: "border-[#1E5EFF]/10",
   },
   {
     icon: BadgeCheck,
     title: "Extended Warranty",
     desc: "Optional extended warranty plans at affordable pricing.",
-    color: "text-rose-600",
-    bg: "bg-rose-50",
-    border: "border-rose-100",
+    color: "text-[#1E5EFF]",
+    bg: "bg-[#F4F6FA]",
+    border: "border-[#1E5EFF]/10",
   },
 ];
 
@@ -282,38 +269,31 @@ const REQUEST_TYPES = [
 
 export function HomePage() {
   const { data: products = [], isLoading } = useProducts();
-  const [email, setEmail] = useState("");
 
-  const [bulkForm, setBulkForm] = useState({
+  const [bannerForm, setBannerForm] = useState({
     name: "",
-    emailAddress: "",
+    email: "",
     phone: "",
     requestType: "",
-    budget: "",
-    message: "",
   });
 
   const featuredProducts = products.slice(0, 4);
 
-  const handleNewsletter = (e: React.FormEvent) => {
+  const handleBannerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim()) {
-      toast.success("You're on the list! We'll be in touch.");
-      setEmail("");
-    }
-  };
-
-  const handleBulkSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.success("Request submitted! Our team will reach out to you shortly.");
-    setBulkForm({
-      name: "",
-      emailAddress: "",
-      phone: "",
-      requestType: "",
-      budget: "",
-      message: "",
+    const existing = JSON.parse(
+      localStorage.getItem("refurbhub_special_requests") || "[]",
+    ) as object[];
+    existing.push({
+      ...bannerForm,
+      submittedAt: new Date().toISOString(),
     });
+    localStorage.setItem(
+      "refurbhub_special_requests",
+      JSON.stringify(existing),
+    );
+    toast.success("Request submitted! We'll reach out shortly.");
+    setBannerForm({ name: "", email: "", phone: "", requestType: "" });
   };
 
   const handleAddToCart = (name: string) => {
@@ -326,20 +306,55 @@ export function HomePage() {
       {/* ── Section 1: Hero Carousel ── */}
       <HeroCarousel />
 
-      {/* ── Section 2: Trust Badges ── */}
-      <section className="border-y border-border bg-card">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {TRUST_BADGES.map(({ icon: Icon, label, sub }) => (
-              <div key={label} className="flex items-center gap-3 py-2">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Icon className="h-5 w-5 text-primary" />
+      {/* ── Section 2: USP Banner ── */}
+      <section
+        className="py-5"
+        style={{
+          background:
+            "linear-gradient(135deg, oklch(0.2 0.08 264) 0%, oklch(0.25 0.12 250) 50%, oklch(0.2 0.08 264) 100%)",
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            {[
+              { icon: Tag, label: "Up to 70% Savings", sub: "vs retail price" },
+              {
+                icon: BadgeCheck,
+                label: "Certified Refurbished",
+                sub: "Every device tested",
+              },
+              {
+                icon: ShieldCheck,
+                label: "Warranty Available",
+                sub: "Extended plans offered",
+              },
+              {
+                icon: RotateCcw,
+                label: "7-Day Returns",
+                sub: "Hassle-free policy",
+              },
+              {
+                icon: ArrowUpRight,
+                label: "Lifetime Upgrade",
+                sub: "Buyback & trade-in",
+              },
+            ].map(({ icon: Icon, label, sub }, i, arr) => (
+              <div
+                key={label}
+                className="relative flex items-center gap-3 py-1"
+              >
+                {/* Vertical divider between items on lg */}
+                {i < arr.length - 1 && (
+                  <span className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-px bg-white/20" />
+                )}
+                <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                  <Icon className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <p className="font-semibold text-sm text-foreground">
+                  <p className="font-bold text-sm text-white leading-tight">
                     {label}
                   </p>
-                  <p className="text-xs text-muted-foreground">{sub}</p>
+                  <p className="text-xs text-white/70">{sub}</p>
                 </div>
               </div>
             ))}
@@ -348,8 +363,8 @@ export function HomePage() {
       </section>
 
       {/* ── Section 3: Featured Products ── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
-        <div className="flex items-center justify-between mb-8">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+        <div className="flex items-center justify-between mb-4">
           <p className="text-sm text-muted-foreground">
             HP, Dell, Lenovo &amp; Apple – Business-class machines at unbeatable
             prices.
@@ -366,7 +381,7 @@ export function HomePage() {
 
         {/* Backend products */}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             {[1, 2, 3, 4].map((k) => (
               <div key={k} className="rounded-2xl overflow-hidden">
                 <Skeleton className="aspect-[4/3] w-full" />
@@ -384,7 +399,7 @@ export function HomePage() {
             whileInView="visible"
             viewport={{ once: true, margin: "-60px" }}
             variants={stagger}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4"
           >
             {featuredProducts.map((p, i) => (
               <motion.div key={p.id.toString()} variants={fadeUp}>
@@ -400,7 +415,7 @@ export function HomePage() {
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
           variants={stagger}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
         >
           {SHOWCASE_PRODUCTS.map((p, i) => (
             <motion.div
@@ -460,13 +475,13 @@ export function HomePage() {
       </section>
 
       {/* ── Section: Shop by Category ── */}
-      <section className="alt-section py-20">
+      <section className="alt-section py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <p className="text-xs font-semibold gradient-text uppercase tracking-widest mb-3">
+          <div className="text-center mb-7">
+            <p className="text-xs font-semibold gradient-text uppercase tracking-widest mb-2">
               Browse
             </p>
-            <h2 className="font-display font-bold text-4xl sm:text-5xl text-foreground">
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-foreground">
               Shop by Category
             </h2>
             <p className="text-muted-foreground mt-3 max-w-xl mx-auto">
@@ -490,7 +505,7 @@ export function HomePage() {
                   data-ocid={`category.item.${i + 1}`}
                   className="group block"
                 >
-                  <div className="relative rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer h-52">
+                  <div className="relative rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer h-40">
                     {/* Background image */}
                     <img
                       src={image}
@@ -518,19 +533,20 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── Section: Trending Products ── */}
-      <section className="py-20">
+      {/* ── Section: Top Picks ── */}
+      <section className="py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-end justify-between mb-12">
+          <div className="flex items-end justify-between mb-6">
             <div>
-              <p className="text-xs font-semibold gradient-text uppercase tracking-widest mb-3">
-                Most Popular
+              <p className="text-xs font-semibold gradient-text uppercase tracking-widest mb-2">
+                Our Selection
               </p>
-              <h2 className="font-display font-bold text-4xl sm:text-5xl text-foreground">
-                Trending Now
+              <h2 className="font-display font-bold text-3xl sm:text-4xl text-foreground">
+                Top Picks
               </h2>
-              <p className="text-muted-foreground mt-2">
-                Most popular this week
+              <p className="text-muted-foreground mt-2 max-w-lg">
+                Handpicked refurbished laptops with the best value and
+                performance this week.
               </p>
             </div>
             <Link
@@ -538,7 +554,7 @@ export function HomePage() {
               data-ocid="trending.view_all_link"
               className="hidden sm:flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors shrink-0 mb-2"
             >
-              View All Trending
+              View All
               <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
@@ -548,65 +564,74 @@ export function HomePage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={stagger}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
           >
-            {SHOWCASE_PRODUCTS.map((p, i) => (
-              <motion.div
-                key={`trending-${p.name}`}
-                variants={fadeUp}
-                data-ocid={`trending.item.${i + 1}`}
-                className="premium-card card-hover bg-card rounded-2xl overflow-hidden border border-border/50 group"
-              >
-                <div className="relative aspect-[4/3] bg-muted overflow-hidden">
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
-                  <div className="absolute top-2 left-2 flex gap-1.5">
-                    <span className="bg-gradient-to-r from-orange-500 to-rose-500 text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                      <Flame className="h-3 w-3" />
-                      Trending
+            {SHOWCASE_PRODUCTS.map((p, i) => {
+              const badgeConfig = [
+                { label: "Top Deal", cls: "bg-[#1E5EFF] text-white" },
+                { label: "Best Seller", cls: "bg-[#6B7280] text-white" },
+                { label: "Staff Pick", cls: "bg-[#1E5EFF] text-white" },
+                { label: "Top Deal", cls: "bg-[#6B7280] text-white" },
+              ][i] ?? { label: "Top Deal", cls: "bg-[#1E5EFF] text-white" };
+              return (
+                <motion.div
+                  key={`trending-${p.name}`}
+                  variants={fadeUp}
+                  data-ocid={`trending.item.${i + 1}`}
+                  className="premium-card card-hover bg-card rounded-2xl overflow-hidden border border-border/50 group"
+                >
+                  <div className="relative aspect-[3/4] bg-muted overflow-hidden">
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                    <div className="absolute top-2 left-2 flex gap-1.5">
+                      <span
+                        className={`${badgeConfig.cls} text-xs font-semibold px-2.5 py-1 rounded-full`}
+                      >
+                        {badgeConfig.label}
+                      </span>
+                    </div>
+                    <span className="absolute top-2 right-2 brand-gradient text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                      -{p.savePct}%
                     </span>
                   </div>
-                  <span className="absolute top-2 right-2 brand-gradient text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                    -{p.savePct}%
-                  </span>
-                </div>
-                <div className="p-5 space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                    {p.brand}
-                  </p>
-                  <h3 className="font-display font-semibold text-foreground text-sm leading-snug">
-                    {p.name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">{p.specs}</p>
-                  <div className="flex items-baseline gap-2 pt-1">
-                    <span className="font-display font-bold text-foreground text-xl">
-                      {p.price}
-                    </span>
-                    <span className="text-muted-foreground text-xs line-through">
-                      {p.originalPrice}
-                    </span>
+                  <div className="p-4 space-y-2">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                      {p.brand}
+                    </p>
+                    <h3 className="font-display font-semibold text-foreground text-sm leading-snug">
+                      {p.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">{p.specs}</p>
+                    <div className="flex items-baseline gap-2 pt-1">
+                      <span className="font-display font-bold text-foreground text-lg">
+                        {p.price}
+                      </span>
+                      <span className="text-muted-foreground text-xs line-through">
+                        {p.originalPrice}
+                      </span>
+                    </div>
+                    <Button
+                      className="w-full h-9 text-sm mt-1 brand-gradient border-0 text-white"
+                      data-ocid={`trending.add_to_cart_button.${i + 1}`}
+                      onClick={() => handleAddToCart(p.name)}
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Add to Cart
+                    </Button>
                   </div>
-                  <Button
-                    className="w-full h-9 text-sm mt-1 brand-gradient border-0 text-white"
-                    data-ocid={`trending.add_to_cart_button.${i + 1}`}
-                    onClick={() => handleAddToCart(p.name)}
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Add to Cart
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </motion.div>
 
-          <div className="mt-8 text-center sm:hidden">
+          <div className="mt-6 text-center sm:hidden">
             <Link to="/shop">
               <Button variant="outline" className="gap-2">
-                View All Trending
+                View All
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -617,15 +642,15 @@ export function HomePage() {
       {/* ── Why Refurbished — Full Dark Blue Section ── */}
       <section
         data-ocid="why_refurbished.section"
-        className="dark-section relative overflow-hidden py-20"
+        className="dark-section relative overflow-hidden py-12"
       >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,oklch(0.45_0.18_264/0.15),transparent_65%)]" />
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <p className="text-xs font-semibold uppercase tracking-widest text-primary/80 mb-3">
+          <div className="text-center mb-7">
+            <p className="text-xs font-semibold uppercase tracking-widest text-primary/80 mb-2">
               Smarter Choice
             </p>
-            <h2 className="font-display font-extrabold text-4xl sm:text-5xl text-white mb-4 leading-tight">
+            <h2 className="font-display font-extrabold text-3xl sm:text-4xl text-white mb-4 leading-tight">
               Why Refurbished is the Smarter Choice
             </h2>
             <p className="text-white/60 max-w-xl mx-auto">
@@ -633,7 +658,7 @@ export function HomePage() {
               certified, and ready to perform.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
             {[
               {
                 icon: Tag,
@@ -662,13 +687,13 @@ export function HomePage() {
             ].map(({ icon: Icon, title, desc, color }) => (
               <div
                 key={title}
-                className="bg-white/8 backdrop-blur-sm rounded-2xl p-6 border border-white/12 hover:bg-white/12 transition-all hover:-translate-y-1 duration-300"
+                className="bg-white/8 backdrop-blur-sm rounded-2xl p-4 border border-white/12 hover:bg-white/12 transition-all hover:-translate-y-1 duration-300"
               >
-                <Icon className={`h-8 w-8 ${color} mb-4`} />
+                <Icon className={`h-6 w-6 ${color} mb-4`} />
                 <h3 className="font-display font-bold text-white text-base mb-2">
                   {title}
                 </h3>
-                <p className="text-white/60 text-sm leading-relaxed">{desc}</p>
+                <p className="text-white/60 text-xs leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>
@@ -697,13 +722,13 @@ export function HomePage() {
       </section>
 
       {/* ── Section 5: Customer Protection Policies ── */}
-      <section className="py-20 bg-background">
+      <section className="py-12 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <p className="text-xs font-semibold gradient-text uppercase tracking-widest mb-3">
+          <div className="text-center mb-7">
+            <p className="text-xs font-semibold gradient-text uppercase tracking-widest mb-2">
               Your Security
             </p>
-            <h2 className="font-display font-bold text-4xl sm:text-5xl text-foreground">
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-foreground">
               Buy With Complete Confidence
             </h2>
           </div>
@@ -713,7 +738,7 @@ export function HomePage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={stagger}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
           >
             {PROTECTION_POLICIES.map(
               ({ icon: Icon, title, desc, color, bg, border }, i) => (
@@ -721,12 +746,12 @@ export function HomePage() {
                   key={title}
                   variants={fadeUp}
                   data-ocid={`protection.policy.item.${i + 1}`}
-                  className={`premium-card card-hover bg-card rounded-2xl p-6 border ${border} text-center`}
+                  className={`premium-card card-hover bg-card rounded-2xl p-4 border ${border} text-center`}
                 >
                   <div
-                    className={`w-12 h-12 rounded-2xl ${bg} flex items-center justify-center mb-4 mx-auto`}
+                    className={`w-9 h-9 rounded-2xl ${bg} flex items-center justify-center mb-4 mx-auto`}
                   >
-                    <Icon className={`h-6 w-6 ${color}`} />
+                    <Icon className={`h-5 w-5 ${color}`} />
                   </div>
                   <h3 className="font-display font-bold text-foreground text-base mb-2 text-center">
                     {title}
@@ -742,14 +767,14 @@ export function HomePage() {
       </section>
 
       {/* ── Section 6: What Our Customers Say (dark navy) ── */}
-      <section className="dark-section py-20 relative overflow-hidden">
+      <section className="dark-section py-12 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,oklch(0.45_0.18_264/0.12),transparent_65%)]" />
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <p className="text-xs font-semibold text-primary/80 uppercase tracking-widest mb-3">
+          <div className="text-center mb-7">
+            <p className="text-xs font-semibold text-primary/80 uppercase tracking-widest mb-2">
               Reviews
             </p>
-            <h2 className="font-display font-bold text-4xl sm:text-5xl text-white">
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-white">
               What Our Customers Say
             </h2>
             <p className="text-white/60 mt-3">
@@ -762,14 +787,14 @@ export function HomePage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={stagger}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
             {TESTIMONIALS.map(({ name, initials, text, stars }, i) => (
               <motion.div
                 key={name}
                 variants={fadeUp}
                 data-ocid={`testimonial.item.${i + 1}`}
-                className="bg-white/8 backdrop-blur-sm rounded-2xl p-6 border border-white/12 hover:bg-white/12 transition-all hover:-translate-y-1 duration-300"
+                className="bg-white/8 backdrop-blur-sm rounded-2xl p-5 border border-white/12 hover:bg-white/12 transition-all hover:-translate-y-1 duration-300"
               >
                 <div className="flex gap-0.5 mb-4">
                   {Array.from(
@@ -806,13 +831,13 @@ export function HomePage() {
       </section>
 
       {/* ── Section 7: Why Buy From Us ── */}
-      <section className="alt-section py-20">
+      <section className="alt-section py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <p className="text-xs font-semibold gradient-text uppercase tracking-widest mb-3">
+          <div className="text-center mb-7">
+            <p className="text-xs font-semibold gradient-text uppercase tracking-widest mb-2">
               Our Promise
             </p>
-            <h2 className="font-display font-bold text-4xl sm:text-5xl text-foreground">
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-foreground">
               Why Buy From Us
             </h2>
           </div>
@@ -822,18 +847,18 @@ export function HomePage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={stagger}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
           >
             {WHY_BUY_FROM_US.map(({ icon: Icon, title, desc, color, bg }) => (
               <motion.div
                 key={title}
                 variants={fadeUp}
-                className="premium-card card-hover bg-card rounded-2xl p-6 text-center border border-border/40"
+                className="premium-card card-hover bg-card rounded-2xl p-4 text-center border border-border/40"
               >
                 <div
-                  className={`w-14 h-14 rounded-2xl ${bg} flex items-center justify-center mx-auto mb-4`}
+                  className={`w-11 h-11 rounded-2xl ${bg} flex items-center justify-center mx-auto mb-4`}
                 >
-                  <Icon className={`h-7 w-7 ${color}`} />
+                  <Icon className={`h-5 w-5 ${color}`} />
                 </div>
                 <h3 className="font-display font-bold text-foreground text-base mb-2 text-center">
                   {title}
@@ -847,172 +872,8 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── Section 8: Special Requests / Bulk Orders ── */}
-      <section id="contact" className="py-20 bg-background">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          {/* Header */}
-          <div className="text-center mb-10">
-            <p className="text-xs font-semibold gradient-text uppercase tracking-widest mb-3">
-              Custom Orders
-            </p>
-            <h2 className="font-display font-bold text-4xl sm:text-5xl text-foreground mb-4">
-              Have a Special Requirement?
-            </h2>
-            <p className="text-muted-foreground leading-relaxed max-w-xl mx-auto">
-              Looking for bulk laptops, a specific model, or a custom-built PC?
-              Tell us what you need and our team will reach out within 24 hours.
-            </p>
-          </div>
-
-          {/* Info badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-            {[
-              { label: "Bulk Orders", sub: "10+ units" },
-              { label: "Custom Builds", sub: "Any config" },
-              { label: "Fast Response", sub: "Within 24hr" },
-              { label: "Business Support", sub: "Dedicated team" },
-            ].map(({ label, sub }) => (
-              <div
-                key={label}
-                className="bg-primary/5 rounded-xl p-3 border border-primary/10 text-center"
-              >
-                <p className="font-semibold text-sm text-foreground">{label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Form card */}
-          <div className="premium-card rounded-3xl border border-border p-8">
-            <form onSubmit={handleBulkSubmit} className="space-y-5">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="bulk-name">Full Name</Label>
-                  <Input
-                    id="bulk-name"
-                    data-ocid="bulk.name_input"
-                    placeholder="Your full name"
-                    required
-                    value={bulkForm.name}
-                    onChange={(e) =>
-                      setBulkForm((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="bulk-email">Email Address</Label>
-                  <Input
-                    id="bulk-email"
-                    type="email"
-                    data-ocid="bulk.email_input"
-                    placeholder="you@example.com"
-                    required
-                    value={bulkForm.emailAddress}
-                    onChange={(e) =>
-                      setBulkForm((prev) => ({
-                        ...prev,
-                        emailAddress: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="bulk-phone">Phone Number</Label>
-                  <Input
-                    id="bulk-phone"
-                    type="tel"
-                    data-ocid="bulk.phone_input"
-                    placeholder="+91 93107 87939"
-                    required
-                    value={bulkForm.phone}
-                    onChange={(e) =>
-                      setBulkForm((prev) => ({
-                        ...prev,
-                        phone: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="bulk-request">Type of Request</Label>
-                  <Select
-                    required
-                    value={bulkForm.requestType}
-                    onValueChange={(val) =>
-                      setBulkForm((prev) => ({ ...prev, requestType: val }))
-                    }
-                  >
-                    <SelectTrigger
-                      id="bulk-request"
-                      data-ocid="bulk.request_type_select"
-                    >
-                      <SelectValue placeholder="Select request type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {REQUEST_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="bulk-budget">Budget Range</Label>
-                <Input
-                  id="bulk-budget"
-                  data-ocid="bulk.budget_input"
-                  placeholder="e.g. ₹50,000 – ₹1,00,000"
-                  required
-                  value={bulkForm.budget}
-                  onChange={(e) =>
-                    setBulkForm((prev) => ({
-                      ...prev,
-                      budget: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="bulk-message">Message / Requirements</Label>
-                <Textarea
-                  id="bulk-message"
-                  data-ocid="bulk.message_textarea"
-                  rows={4}
-                  placeholder="Describe your requirements in detail — quantity, specs, timeline..."
-                  required
-                  value={bulkForm.message}
-                  onChange={(e) =>
-                    setBulkForm((prev) => ({
-                      ...prev,
-                      message: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full font-semibold brand-gradient border-0 text-white"
-                data-ocid="bulk.submit_button"
-              >
-                Request a Quote
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </form>
-          </div>
-        </div>
-      </section>
-
       {/* ── Section 9: Limited Deals ── */}
-      <section className="py-20 relative overflow-hidden">
+      <section className="py-12 relative overflow-hidden">
         {/* Background */}
         <div
           className="absolute inset-0 opacity-30"
@@ -1026,11 +887,11 @@ export function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/90 via-slate-900/85 to-slate-900/90" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
+          <div className="text-center mb-7">
             <Badge className="mb-3 bg-rose-500/20 text-rose-300 border-rose-500/30 hover:bg-rose-500/30">
               ⚡ Limited Time
             </Badge>
-            <h2 className="font-display font-bold text-4xl sm:text-5xl text-white">
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-white">
               Today's Best Laptop Deals
             </h2>
             <p className="text-white/60 mt-2">
@@ -1043,7 +904,7 @@ export function HomePage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={stagger}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
             {DEALS.map(
               (
@@ -1056,7 +917,7 @@ export function HomePage() {
                   data-ocid={`deals.item.${i + 1}`}
                   className="bg-white/10 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/15 hover:bg-white/15 transition-all group"
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden">
+                  <div className="relative aspect-[16/9] overflow-hidden">
                     <img
                       src={image}
                       alt={name}
@@ -1069,7 +930,7 @@ export function HomePage() {
                       {save}
                     </span>
                   </div>
-                  <div className="p-5">
+                  <div className="p-4">
                     <h3 className="font-display font-bold text-white text-base mb-1">
                       {name}
                     </h3>
@@ -1105,7 +966,7 @@ export function HomePage() {
 
       {/* ── Section 12: Final CTA ── */}
       <section
-        className="py-24 relative overflow-hidden"
+        className="py-14 relative overflow-hidden"
         style={{
           background:
             "linear-gradient(135deg, oklch(0.15 0.05 264) 0%, oklch(0.12 0.08 264) 50%, oklch(0.1 0.04 264) 100%)",
@@ -1127,11 +988,14 @@ export function HomePage() {
             </motion.p>
             <motion.h2
               variants={fadeUp}
-              className="font-display font-extrabold text-4xl sm:text-5xl text-white mb-4 leading-tight"
+              className="font-display font-extrabold text-3xl sm:text-4xl text-white mb-4 leading-tight"
             >
               Upgrade Your Laptop Today
             </motion.h2>
-            <motion.p variants={fadeUp} className="text-white/60 text-lg mb-8">
+            <motion.p
+              variants={fadeUp}
+              className="text-white/60 text-base mb-6"
+            >
               Premium refurbished laptops at prices you won't believe.
             </motion.p>
             <motion.div variants={fadeUp}>
@@ -1150,110 +1014,128 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── Section 12: Newsletter ── */}
-      <section className="bg-foreground py-20 relative overflow-hidden">
-        {/* Subtle background image */}
-        <div
-          className="absolute inset-0 opacity-15"
-          style={{
-            backgroundImage:
-              "url('/assets/generated/special-request-bg.dim_1200x600.jpg')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        />
-        <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 text-center">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="space-y-6"
-          >
-            <motion.p
-              variants={fadeUp}
-              className="text-xs font-semibold text-primary uppercase tracking-widest"
-            >
-              Newsletter
-            </motion.p>
-            <motion.h2
-              variants={fadeUp}
-              className="font-display font-bold text-3xl sm:text-4xl text-background"
-            >
-              Get the Best Deals First
-            </motion.h2>
-            <motion.p
-              variants={fadeUp}
-              className="text-background/60 text-base"
-            >
-              Subscribe and receive exclusive deals, new arrivals, and
-              refurbishing tips directly in your inbox.
-            </motion.p>
-            <motion.form
-              variants={fadeUp}
-              onSubmit={handleNewsletter}
-              className="flex flex-col sm:flex-row gap-3"
-            >
-              <Input
-                type="email"
-                placeholder="Enter your email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                data-ocid="newsletter.email_input"
-                className="flex-1 bg-background/10 border-background/20 text-background placeholder:text-background/40 focus:border-primary"
-              />
-              <Button
-                type="submit"
-                data-ocid="newsletter.submit_button"
-                className="sm:shrink-0 font-semibold brand-gradient border-0 text-white"
-              >
-                Subscribe Now
-              </Button>
-            </motion.form>
-            <motion.p variants={fadeUp} className="text-background/40 text-xs">
-              No spam. Unsubscribe at any time. By subscribing you agree to our
-              Privacy Policy.
-            </motion.p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── Special Request Banner (above footer) ── */}
+      {/* ── Have a Special Requirement? (above footer) ── */}
       <section
-        className="relative overflow-hidden py-10"
+        id="special-request"
+        className="relative overflow-hidden py-10 sm:py-14"
         style={{
           background:
             "linear-gradient(135deg, oklch(0.2 0.08 264) 0%, oklch(0.25 0.12 250) 50%, oklch(0.2 0.08 264) 100%)",
         }}
       >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(0.45_0.2_264/0.12),transparent_70%)]" />
-        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 text-center">
-          <p className="text-xs font-semibold text-primary/70 uppercase tracking-widest mb-2">
-            Got a Special Request?
-          </p>
-          <h2 className="font-display font-bold text-2xl sm:text-3xl text-white mb-2">
-            Need Something Custom?
-          </h2>
-          <p className="text-white/60 text-sm mb-5">
-            Bulk orders, specific models, or custom builds — we handle it all.
-          </p>
-          <a href="/#contact">
-            <Button
-              size="lg"
-              data-ocid="special_request_banner.button"
-              className="h-11 px-8 font-bold brand-gradient border-0 text-white shadow-xl"
-              onClick={(e) => {
-                e.preventDefault();
-                document
-                  .getElementById("contact")
-                  ?.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              Send Us a Request
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </a>
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+            {/* Left: heading + bullets */}
+            <div>
+              <p className="text-xs font-semibold text-white/50 uppercase tracking-widest mb-3">
+                Custom Orders &amp; Bulk Requests
+              </p>
+              <h2 className="font-display font-bold text-2xl sm:text-3xl text-white mb-3 leading-tight">
+                Have a Special Requirement?
+              </h2>
+              <p className="text-white/65 text-sm mb-6 leading-relaxed">
+                Looking for bulk laptops, a specific model, or a custom-built
+                PC? Tell us what you need and our team will reach out to help
+                you.
+              </p>
+              <ul className="space-y-3">
+                {[
+                  "Bulk Laptop Orders (10+ units)",
+                  "Specific laptop model sourcing",
+                  "Custom PC builds to your specs",
+                  "Business & corporate purchases",
+                  "Fast 24hr dedicated response",
+                ].map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-center gap-3 text-white/80 text-sm"
+                  >
+                    <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                      <Check className="h-3 w-3 text-white" />
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Right: compact form */}
+            <div className="bg-white/10 rounded-2xl p-6 border border-white/20">
+              <p className="text-white font-display font-semibold text-base mb-4">
+                Send us your requirement
+              </p>
+              <form onSubmit={handleBannerSubmit} className="space-y-3">
+                <Input
+                  type="text"
+                  placeholder="Your Name"
+                  required
+                  data-ocid="banner.name_input"
+                  value={bannerForm.name}
+                  onChange={(e) =>
+                    setBannerForm((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  className="h-10 bg-white/15 border-white/30 text-white placeholder:text-white/50 rounded-xl focus-visible:ring-[#1E5EFF] focus-visible:border-[#1E5EFF]"
+                />
+                <Input
+                  type="email"
+                  placeholder="Email Address"
+                  required
+                  data-ocid="banner.email_input"
+                  value={bannerForm.email}
+                  onChange={(e) =>
+                    setBannerForm((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  className="h-10 bg-white/15 border-white/30 text-white placeholder:text-white/50 rounded-xl focus-visible:ring-[#1E5EFF] focus-visible:border-[#1E5EFF]"
+                />
+                <Input
+                  type="tel"
+                  placeholder="Phone Number"
+                  required
+                  data-ocid="banner.phone_input"
+                  value={bannerForm.phone}
+                  onChange={(e) =>
+                    setBannerForm((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
+                  className="h-10 bg-white/15 border-white/30 text-white placeholder:text-white/50 rounded-xl focus-visible:ring-[#1E5EFF] focus-visible:border-[#1E5EFF]"
+                />
+                <Select
+                  value={bannerForm.requestType}
+                  onValueChange={(val) =>
+                    setBannerForm((prev) => ({ ...prev, requestType: val }))
+                  }
+                >
+                  <SelectTrigger
+                    data-ocid="banner.request_type_select"
+                    className="h-10 bg-white/15 border-white/30 text-white rounded-xl focus:ring-[#1E5EFF] [&>span]:text-white/50 data-[state=open]:border-[#1E5EFF]"
+                  >
+                    <SelectValue placeholder="Type of Request" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REQUEST_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="submit"
+                  data-ocid="banner.submit_button"
+                  className="w-full h-11 font-bold bg-white text-[#0B2A4A] hover:bg-white/90 border-0 rounded-xl text-base"
+                >
+                  Request a Quote
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </form>
+            </div>
+          </div>
         </div>
       </section>
     </main>

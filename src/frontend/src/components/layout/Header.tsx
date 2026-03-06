@@ -29,19 +29,19 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 glass-nav">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14">
           {/* Logo */}
           <Link
             to="/"
             data-ocid="nav.logo_link"
-            className="flex items-center gap-2 font-display font-extrabold text-2xl text-foreground hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 font-display font-extrabold text-xl text-foreground hover:opacity-90 transition-opacity"
           >
-            <span className="w-9 h-9 brand-gradient rounded-lg flex items-center justify-center text-white text-base font-bold shadow-md">
+            <span className="w-8 h-8 brand-gradient rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-md">
               R
             </span>
             <span>
               <span className="text-foreground">Refurb</span>
-              <span className="gradient-text"> Hub</span>
+              <span style={{ color: "#0B2A4A" }}> Hub</span>
             </span>
           </Link>
 
@@ -50,28 +50,28 @@ export function Header() {
             <Link
               to="/"
               data-ocid="nav.home_link"
-              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
+              className="px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
             >
               Home
             </Link>
             <Link
               to="/about"
               data-ocid="nav.about_link"
-              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
+              className="px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
             >
               About
             </Link>
             <Link
               to="/shop"
               data-ocid="nav.shop_link"
-              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
+              className="px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
             >
               Shop
             </Link>
             <a
-              href="/#contact"
+              href="/#special-request"
               data-ocid="nav.contact_link"
-              className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
+              className="px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted"
             >
               Contact Us
             </a>
@@ -187,7 +187,7 @@ export function Header() {
                   type="button"
                   onClick={() => {
                     setMenuOpen(false);
-                    window.location.href = "/#contact";
+                    window.location.href = "/#special-request";
                   }}
                   data-ocid="nav.mobile_contact_link"
                   className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted text-left"
