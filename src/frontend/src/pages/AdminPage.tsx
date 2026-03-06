@@ -66,14 +66,14 @@ import {
   Pencil,
   Plus,
   Save,
+  ShieldCheck,
   ShoppingBag,
   Trash2,
   Upload,
   UserCheck,
-  Wifi,
   WifiOff,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "../backend.d";
 import { useActor } from "../hooks/useActor";
@@ -85,7 +85,6 @@ import {
   useDeleteProduct,
   useIsAdmin,
   useOrders,
-  useProducts,
   useUpdateOrderStatus,
   useUpdateProduct,
 } from "../hooks/useQueries";
@@ -2325,398 +2324,6 @@ function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-/* ─── II Connection Step ─── */
-
-function IIConnectStep({ onDone }: { onDone: () => void }) {
-  const { identity, login, loginStatus } = useInternetIdentity();
-  const { actor, isFetching: isActorFetching } = useActor();
-  const activateAdmin = useActivateAdmin();
-  const { data: isAdmin, refetch: refetchIsAdmin } = useIsAdmin();
-  const [activationState, setActivationState] = useState<
-    "idle" | "need-token" | "activating" | "success" | "error"
-  >("idle");
-  const [activationError, setActivationError] = useState("");
-  const [tokenInput, setTokenInput] = useState("");
-  const isLoggedIn = !!identity && !identity.getPrincipal().isAnonymous();
-  const isLoggingIn = loginStatus === "logging-in";
-  const activateMutate = activateAdmin.mutate;
-
-  const runActivation = useCallback(() => {
-    setActivationState("activating");
-    activateMutate(undefined, {
-      onSuccess: async () => {
-        await refetchIsAdmin();
-        sessionStorage.setItem("admin_activated", "true");
-        setActivationState("success");
-        setTimeout(() => onDone(), 1500);
-      },
-      onError: (err) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        // "already initialized" or user is already in role map → already admin, proceed
-        if (
-          msg.toLowerCase().includes("already") ||
-          msg.toLowerCase().includes("initialized")
-        ) {
-          sessionStorage.setItem("admin_activated", "true");
-          setActivationState("success");
-          setTimeout(() => onDone(), 1500);
-        } else if (
-          msg.toLowerCase().includes("caffeine_admin_token") ||
-          msg.toLowerCase().includes("environment") ||
-          msg.toLowerCase().includes("not set") ||
-          msg.toLowerCase().includes("unauthorized") ||
-          msg.toLowerCase().includes("trap")
-        ) {
-          // Token is needed but wasn't supplied (or was wrong) — ask for it
-          setActivationState("need-token");
-          setActivationError("");
-        } else {
-          setActivationState("error");
-          setActivationError(msg || "Activation failed. Please try again.");
-        }
-      },
-    });
-  }, [activateMutate, refetchIsAdmin, onDone]);
-
-  const handleTokenSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const t = tokenInput.trim();
-    if (!t) return;
-    // Store token so useActor picks it up on the next actor creation
-    sessionStorage.setItem("caffeineAdminToken", t);
-    // Reload the page so the actor is rebuilt with the stored token
-    window.location.reload();
-  };
-
-  // Once logged in AND authenticated actor is ready, trigger activation
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    if (activationState !== "idle") return;
-    // Wait for the authenticated actor to be built before proceeding
-    if (isActorFetching || !actor) return;
-    // If already admin or previously activated, go straight to dashboard
-    if (
-      isAdmin === true ||
-      sessionStorage.getItem("admin_activated") === "true"
-    ) {
-      setActivationState("success");
-      const t = setTimeout(() => onDone(), 800);
-      return () => clearTimeout(t);
-    }
-    // Otherwise try to activate
-    runActivation();
-  }, [
-    isLoggedIn,
-    isAdmin,
-    activationState,
-    onDone,
-    runActivation,
-    actor,
-    isActorFetching,
-  ]);
-
-  const sharedCardStyle = {
-    background: "rgba(255,255,255,0.04)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(30,94,255,0.08)",
-    backdropFilter: "blur(20px)",
-  } as React.CSSProperties;
-
-  return (
-    <div
-      data-ocid="admin.ii_connect_gate"
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{
-        background:
-          "linear-gradient(135deg, #0B2A4A 0%, #0f3a63 50%, #091e33 100%)",
-      }}
-    >
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 40% at 50% 30%, rgba(30,94,255,0.15) 0%, transparent 70%)",
-        }}
-      />
-      <div className="relative w-full max-w-md">
-        <div
-          className="rounded-2xl p-8 sm:p-10 text-center"
-          style={sharedCardStyle}
-        >
-          {/* Brand */}
-          <div className="inline-flex items-center gap-2 mb-6">
-            <span
-              className="text-2xl font-bold tracking-tight"
-              style={{ color: "#ffffff" }}
-            >
-              Refurb{" "}
-              <span
-                style={{ color: "#0B2A4A", WebkitTextStroke: "1px #4a9eff" }}
-              >
-                Hub
-              </span>
-            </span>
-          </div>
-
-          {/* State: not logged in */}
-          {!isLoggedIn && activationState === "idle" && (
-            <>
-              <div
-                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(30,94,255,0.2), rgba(30,94,255,0.1))",
-                  border: "1px solid rgba(30,94,255,0.3)",
-                }}
-              >
-                <UserCheck className="h-8 w-8" style={{ color: "#4a9eff" }} />
-              </div>
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: "#ffffff", letterSpacing: "-0.02em" }}
-              >
-                Connect Your Account
-              </h2>
-              <p
-                className="text-sm mb-6"
-                style={{ color: "rgba(255,255,255,0.55)" }}
-              >
-                Log in with Internet Identity to activate admin access and save
-                products to the backend. This only needs to be done once.
-              </p>
-              <button
-                type="button"
-                data-ocid="admin.ii_login_button"
-                onClick={() => void login()}
-                disabled={isLoggingIn}
-                className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
-                style={{
-                  background: isLoggingIn
-                    ? "rgba(30,94,255,0.5)"
-                    : "linear-gradient(135deg, #1E5EFF, #3b7dff)",
-                  color: "#ffffff",
-                  boxShadow: isLoggingIn
-                    ? "none"
-                    : "0 4px 20px rgba(30,94,255,0.4)",
-                  cursor: isLoggingIn ? "not-allowed" : "pointer",
-                }}
-              >
-                {isLoggingIn ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Wifi className="h-4 w-4" />
-                )}
-                {isLoggingIn ? "Connecting..." : "Login with Internet Identity"}
-              </button>
-            </>
-          )}
-
-          {/* State: activating */}
-          {(activationState === "activating" ||
-            (isLoggedIn && activationState === "idle")) && (
-            <>
-              <div
-                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(30,94,255,0.2), rgba(30,94,255,0.1))",
-                  border: "1px solid rgba(30,94,255,0.3)",
-                }}
-              >
-                <Loader2
-                  className="h-8 w-8 animate-spin"
-                  style={{ color: "#4a9eff" }}
-                />
-              </div>
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: "#ffffff" }}
-              >
-                Activating Admin Access
-              </h2>
-              <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Registering your account on the backend...
-              </p>
-            </>
-          )}
-
-          {/* State: need-token — ask user to paste their Caffeine admin token */}
-          {activationState === "need-token" && (
-            <>
-              <div
-                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
-                style={{
-                  background: "rgba(234,179,8,0.15)",
-                  border: "1px solid rgba(234,179,8,0.3)",
-                }}
-              >
-                <Lock className="h-8 w-8" style={{ color: "#fbbf24" }} />
-              </div>
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: "#ffffff" }}
-              >
-                Admin Token Required
-              </h2>
-              <p
-                className="text-sm mb-5"
-                style={{ color: "rgba(255,255,255,0.55)" }}
-              >
-                To register your Internet Identity as the site admin, open this
-                app from your{" "}
-                <strong style={{ color: "#ffffff" }}>Caffeine dashboard</strong>{" "}
-                (the "Open" button). The admin token will be appended to the URL
-                automatically and you'll be logged in as admin.
-              </p>
-              <p
-                className="text-xs mb-5"
-                style={{ color: "rgba(255,255,255,0.35)" }}
-              >
-                Alternatively, if you already have the token, paste it below:
-              </p>
-              <form
-                onSubmit={handleTokenSubmit}
-                className="space-y-3 text-left"
-              >
-                <input
-                  type="text"
-                  data-ocid="admin.token_input"
-                  value={tokenInput}
-                  onChange={(e) => setTokenInput(e.target.value)}
-                  placeholder="Paste Caffeine admin token here"
-                  className="w-full h-11 rounded-xl px-4 text-sm outline-none"
-                  style={{
-                    background: "rgba(255,255,255,0.07)",
-                    border: "1px solid rgba(255,255,255,0.14)",
-                    color: "#ffffff",
-                  }}
-                />
-                <button
-                  type="submit"
-                  data-ocid="admin.token_submit_button"
-                  disabled={!tokenInput.trim()}
-                  className="w-full h-11 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
-                  style={{
-                    background: tokenInput.trim()
-                      ? "linear-gradient(135deg, #1E5EFF, #3b7dff)"
-                      : "rgba(255,255,255,0.08)",
-                    color: "#ffffff",
-                    cursor: tokenInput.trim() ? "pointer" : "not-allowed",
-                  }}
-                >
-                  <Wifi className="h-4 w-4" />
-                  Activate &amp; Reload
-                </button>
-              </form>
-              <button
-                type="button"
-                data-ocid="admin.ii_skip_button"
-                onClick={onDone}
-                className="mt-4 text-xs underline"
-                style={{ color: "rgba(255,255,255,0.3)", cursor: "pointer" }}
-              >
-                Skip — continue without backend write access
-              </button>
-            </>
-          )}
-
-          {/* State: success */}
-          {activationState === "success" && (
-            <>
-              <div
-                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
-                style={{
-                  background: "rgba(34,197,94,0.15)",
-                  border: "1px solid rgba(34,197,94,0.3)",
-                }}
-              >
-                <CheckCircle2
-                  className="h-8 w-8"
-                  style={{ color: "#22c55e" }}
-                />
-              </div>
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: "#ffffff" }}
-              >
-                Admin Access Activated!
-              </h2>
-              <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Redirecting to dashboard...
-              </p>
-            </>
-          )}
-
-          {/* State: error */}
-          {activationState === "error" && (
-            <>
-              <div
-                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
-                style={{
-                  background: "rgba(239,68,68,0.15)",
-                  border: "1px solid rgba(239,68,68,0.3)",
-                }}
-              >
-                <AlertCircle className="h-8 w-8" style={{ color: "#f87171" }} />
-              </div>
-              <h2
-                className="text-2xl font-bold mb-2"
-                style={{ color: "#ffffff" }}
-              >
-                Activation Failed
-              </h2>
-              <p
-                className="text-sm mb-6"
-                style={{ color: "rgba(255,255,255,0.5)" }}
-              >
-                {activationError}
-              </p>
-              <div className="flex gap-3 justify-center">
-                <button
-                  type="button"
-                  data-ocid="admin.ii_retry_button"
-                  onClick={() => {
-                    setActivationState("idle");
-                    setActivationError("");
-                  }}
-                  className="h-10 px-5 rounded-xl font-semibold text-sm"
-                  style={{
-                    background: "rgba(255,255,255,0.08)",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    color: "#ffffff",
-                    cursor: "pointer",
-                  }}
-                >
-                  Retry
-                </button>
-                <button
-                  type="button"
-                  data-ocid="admin.ii_skip_button"
-                  onClick={onDone}
-                  className="h-10 px-5 rounded-xl font-semibold text-sm"
-                  style={{
-                    background: "linear-gradient(135deg, #1E5EFF, #3b7dff)",
-                    color: "#ffffff",
-                    cursor: "pointer",
-                  }}
-                >
-                  Continue Anyway
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-        <p
-          className="text-center text-xs mt-6"
-          style={{ color: "rgba(255,255,255,0.25)" }}
-        >
-          Authorized personnel only
-        </p>
-      </div>
-    </div>
-  );
-}
-
 /* ─── Admin Status Pill (header badge) ─── */
 
 function AdminStatusPill() {
@@ -2744,6 +2351,23 @@ function AdminStatusPill() {
     );
   }
 
+  if (isConnected && isAdmin === false) {
+    return (
+      <span
+        data-ocid="admin.not_admin_status"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full"
+        style={{
+          background: "rgba(239,68,68,0.1)",
+          border: "1px solid rgba(239,68,68,0.25)",
+          color: "#dc2626",
+        }}
+      >
+        <AlertCircle className="w-3.5 h-3.5" />
+        Not Admin
+      </span>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -2763,33 +2387,375 @@ function AdminStatusPill() {
   );
 }
 
+/* ─── Shared Dark Card Layout (matches PasswordGate aesthetic) ─── */
+
+function DarkScreenWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center px-4 relative"
+      style={{
+        background:
+          "linear-gradient(135deg, #0B2A4A 0%, #0f3a63 50%, #091e33 100%)",
+      }}
+    >
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 40% at 50% 30%, rgba(30,94,255,0.15) 0%, transparent 70%)",
+        }}
+      />
+      <div className="relative w-full max-w-md">
+        <div
+          className="rounded-2xl p-8 sm:p-10"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            boxShadow:
+              "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(30,94,255,0.08)",
+            backdropFilter: "blur(20px)",
+          }}
+        >
+          {children}
+        </div>
+        <p
+          className="text-center text-xs mt-6"
+          style={{ color: "rgba(255,255,255,0.25)" }}
+        >
+          Authorized personnel only
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Step 2: Internet Identity Login Gate ─── */
+
+function IILoginGate() {
+  const { login, isLoggingIn, isLoginError, loginError } =
+    useInternetIdentity();
+
+  return (
+    <DarkScreenWrapper>
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center gap-2 mb-6">
+          <span
+            className="text-2xl font-bold tracking-tight"
+            style={{ color: "#ffffff" }}
+          >
+            Refurb{" "}
+            <span style={{ color: "#0B2A4A", WebkitTextStroke: "1px #4a9eff" }}>
+              Hub
+            </span>
+          </span>
+        </div>
+
+        <div
+          className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(30,94,255,0.2), rgba(30,94,255,0.1))",
+            border: "1px solid rgba(30,94,255,0.3)",
+          }}
+        >
+          <UserCheck className="h-8 w-8" style={{ color: "#4a9eff" }} />
+        </div>
+
+        <h1
+          className="text-2xl font-bold mb-2"
+          style={{ color: "#ffffff", letterSpacing: "-0.02em" }}
+        >
+          Verify Your Identity
+        </h1>
+        <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+          Login with Internet Identity to access the admin dashboard
+        </p>
+      </div>
+
+      {isLoginError && (
+        <div
+          data-ocid="admin.ii_login_error_state"
+          className="flex items-center gap-2 text-sm mb-4 p-3 rounded-xl"
+          style={{
+            background: "rgba(239,68,68,0.1)",
+            border: "1px solid rgba(239,68,68,0.25)",
+            color: "#f87171",
+          }}
+          role="alert"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>
+            {loginError?.message ?? "Login failed. Please try again."}
+          </span>
+        </div>
+      )}
+
+      <button
+        type="button"
+        data-ocid="admin.ii_login_button"
+        onClick={() => void login()}
+        disabled={isLoggingIn}
+        className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
+        style={{
+          background: isLoggingIn
+            ? "rgba(30,94,255,0.5)"
+            : "linear-gradient(135deg, #1E5EFF, #3b7dff)",
+          color: "#ffffff",
+          boxShadow: isLoggingIn ? "none" : "0 4px 20px rgba(30,94,255,0.4)",
+          cursor: isLoggingIn ? "not-allowed" : "pointer",
+        }}
+        onMouseEnter={(e) => {
+          if (!isLoggingIn) {
+            e.currentTarget.style.background =
+              "linear-gradient(135deg, #2468ff, #4a8aff)";
+            e.currentTarget.style.boxShadow = "0 6px 28px rgba(30,94,255,0.55)";
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isLoggingIn) {
+            e.currentTarget.style.background =
+              "linear-gradient(135deg, #1E5EFF, #3b7dff)";
+            e.currentTarget.style.boxShadow = "0 4px 20px rgba(30,94,255,0.4)";
+            e.currentTarget.style.transform = "translateY(0)";
+          }
+        }}
+      >
+        {isLoggingIn ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Connecting to Internet Identity...
+          </>
+        ) : (
+          <>
+            <UserCheck className="h-4 w-4" />
+            Login with Internet Identity
+          </>
+        )}
+      </button>
+
+      <p
+        className="text-center text-xs mt-4"
+        style={{ color: "rgba(255,255,255,0.35)" }}
+      >
+        Your identity is secured by the Internet Computer
+      </p>
+    </DarkScreenWrapper>
+  );
+}
+
+/* ─── Step 3: Admin Registration Gate ─── */
+
+function AdminRegistrationGate() {
+  const activateAdmin = useActivateAdmin();
+  const { actor, isFetching: actorFetching } = useActor();
+
+  const handleRegister = () => {
+    if (!actor) {
+      toast.error("Backend not connected. Please wait and try again.");
+      return;
+    }
+    activateAdmin.mutate(undefined, {
+      onSuccess: () => {
+        toast.success("Admin access granted! Welcome to the dashboard.");
+      },
+      onError: (err) => {
+        const msg = err instanceof Error ? err.message : "Registration failed";
+        console.error("[AdminRegistrationGate] Error:", err);
+        toast.error(msg);
+      },
+    });
+  };
+
+  const isWaiting = actorFetching || !actor;
+
+  return (
+    <DarkScreenWrapper>
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center gap-2 mb-6">
+          <span
+            className="text-2xl font-bold tracking-tight"
+            style={{ color: "#ffffff" }}
+          >
+            Refurb{" "}
+            <span style={{ color: "#0B2A4A", WebkitTextStroke: "1px #4a9eff" }}>
+              Hub
+            </span>
+          </span>
+        </div>
+
+        <div
+          className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(30,94,255,0.2), rgba(30,94,255,0.1))",
+            border: "1px solid rgba(30,94,255,0.3)",
+          }}
+        >
+          <ShieldCheck className="h-8 w-8" style={{ color: "#4a9eff" }} />
+        </div>
+
+        <h1
+          className="text-2xl font-bold mb-2"
+          style={{ color: "#ffffff", letterSpacing: "-0.02em" }}
+        >
+          Register as Admin
+        </h1>
+        <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+          Your account is not yet registered as admin on this canister. Click
+          below to register your Internet Identity as the site administrator.
+        </p>
+      </div>
+
+      {activateAdmin.isError && (
+        <div
+          data-ocid="admin.register_error_state"
+          className="flex items-center gap-2 text-sm mb-4 p-3 rounded-xl"
+          style={{
+            background: "rgba(239,68,68,0.1)",
+            border: "1px solid rgba(239,68,68,0.25)",
+            color: "#f87171",
+          }}
+          role="alert"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>
+            {activateAdmin.error instanceof Error
+              ? activateAdmin.error.message
+              : "Registration failed. Please try again."}
+          </span>
+        </div>
+      )}
+
+      <button
+        type="button"
+        data-ocid="admin.register_admin_button"
+        onClick={handleRegister}
+        disabled={activateAdmin.isPending || isWaiting}
+        className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
+        style={{
+          background:
+            activateAdmin.isPending || isWaiting
+              ? "rgba(30,94,255,0.5)"
+              : "linear-gradient(135deg, #1E5EFF, #3b7dff)",
+          color: "#ffffff",
+          boxShadow:
+            activateAdmin.isPending || isWaiting
+              ? "none"
+              : "0 4px 20px rgba(30,94,255,0.4)",
+          cursor:
+            activateAdmin.isPending || isWaiting ? "not-allowed" : "pointer",
+        }}
+        onMouseEnter={(e) => {
+          if (!activateAdmin.isPending && !isWaiting) {
+            e.currentTarget.style.background =
+              "linear-gradient(135deg, #2468ff, #4a8aff)";
+            e.currentTarget.style.boxShadow = "0 6px 28px rgba(30,94,255,0.55)";
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!activateAdmin.isPending && !isWaiting) {
+            e.currentTarget.style.background =
+              "linear-gradient(135deg, #1E5EFF, #3b7dff)";
+            e.currentTarget.style.boxShadow = "0 4px 20px rgba(30,94,255,0.4)";
+            e.currentTarget.style.transform = "translateY(0)";
+          }
+        }}
+      >
+        {isWaiting ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Connecting to backend...
+          </>
+        ) : activateAdmin.isPending ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Registering admin access...
+          </>
+        ) : (
+          <>
+            <ShieldCheck className="h-4 w-4" />
+            Register as Admin
+          </>
+        )}
+      </button>
+
+      <p
+        className="text-center text-xs mt-4"
+        style={{ color: "rgba(255,255,255,0.35)" }}
+      >
+        This registers your Internet Identity principal as the site admin
+      </p>
+    </DarkScreenWrapper>
+  );
+}
+
 /* ─── Main AdminPage ─── */
 
 export function AdminPage() {
   const [passwordUnlocked, setPasswordUnlocked] = useState(
     () => sessionStorage.getItem("admin_auth") === "true",
   );
-  const [iiDone, setIiDone] = useState(
-    () =>
-      sessionStorage.getItem("admin_ii_done") === "true" ||
-      sessionStorage.getItem("admin_activated") === "true",
-  );
+  const { identity, isInitializing } = useInternetIdentity();
+  const { data: isAdmin, isLoading: isAdminLoading } = useIsAdmin();
 
-  const handleIiDone = () => {
-    sessionStorage.setItem("admin_ii_done", "true");
-    setIiDone(true);
-  };
-
-  // Step 1: password gate
+  // Step 1: Password gate
   if (!passwordUnlocked) {
     return <PasswordGate onUnlock={() => setPasswordUnlocked(true)} />;
   }
 
-  // Step 2: Internet Identity + admin activation
-  if (!iiDone) {
-    return <IIConnectStep onDone={handleIiDone} />;
+  // Step 2: Wait for II initialization, then require login
+  if (isInitializing) {
+    return (
+      <DarkScreenWrapper>
+        <div className="text-center py-8">
+          <Loader2
+            className="h-10 w-10 animate-spin mx-auto mb-4"
+            style={{ color: "#4a9eff" }}
+          />
+          <p
+            className="text-sm font-medium"
+            style={{ color: "rgba(255,255,255,0.6)" }}
+          >
+            Initializing identity...
+          </p>
+        </div>
+      </DarkScreenWrapper>
+    );
   }
 
+  const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
+
+  if (!isConnected) {
+    return <IILoginGate />;
+  }
+
+  // Step 3: Identity loaded — check admin status
+  if (isAdminLoading) {
+    return (
+      <DarkScreenWrapper>
+        <div className="text-center py-8">
+          <Loader2
+            className="h-10 w-10 animate-spin mx-auto mb-4"
+            style={{ color: "#4a9eff" }}
+          />
+          <p
+            className="text-sm font-medium"
+            style={{ color: "rgba(255,255,255,0.6)" }}
+          >
+            Verifying admin access...
+          </p>
+        </div>
+      </DarkScreenWrapper>
+    );
+  }
+
+  if (!isAdmin) {
+    return <AdminRegistrationGate />;
+  }
+
+  // Step 4: Authenticated admin — show dashboard
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">

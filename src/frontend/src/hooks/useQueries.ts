@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import type { Order, OrderItem, Product, ShoppingItem } from "../backend.d";
 import {
   type ProductWithMarketPrice,
@@ -15,16 +14,24 @@ export function useProducts() {
   return useQuery<ProductWithMarketPrice[]>({
     queryKey: ["products"],
     queryFn: async () => {
-      // No actor yet — show sample products as a pleasant fallback
-      if (!actor) return SAMPLE_PRODUCTS;
-      const result = await actor.getProducts();
-      // Backend is empty (first launch) — show sample products so the page never looks blank
-      return result.length > 0
-        ? (result as ProductWithMarketPrice[])
-        : SAMPLE_PRODUCTS;
+      if (!actor) {
+        console.log(
+          "[useProducts] Actor not ready — returning sample products",
+        );
+        return SAMPLE_PRODUCTS;
+      }
+      try {
+        console.log("[useProducts] Fetching products from backend canister");
+        const result = await actor.getProducts();
+        console.log(`[useProducts] Got ${result.length} products from backend`);
+        if (result.length > 0) return result as ProductWithMarketPrice[];
+      } catch (err) {
+        console.error("[useProducts] Backend call failed:", err);
+      }
+      return SAMPLE_PRODUCTS;
     },
     enabled: !isFetching,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
   });
 }
 
@@ -34,30 +41,61 @@ export function useProduct(id: bigint) {
     queryKey: ["product", id.toString()],
     queryFn: async () => {
       if (!actor) {
+        console.log("[useProduct] Actor not ready — falling back to sample");
         return SAMPLE_PRODUCTS.find((p) => p.id === id) ?? null;
       }
-      const result = await actor.getProduct(id);
-      return (result as ProductWithMarketPrice | null) ?? null;
+      try {
+        console.log(
+          `[useProduct] Fetching product ${id.toString()} from backend`,
+        );
+        const result = await actor.getProduct(id);
+        if (result) return result as ProductWithMarketPrice;
+      } catch (err) {
+        console.error("[useProduct] Backend call failed:", err);
+      }
+      return SAMPLE_PRODUCTS.find((p) => p.id === id) ?? null;
     },
     enabled: !isFetching,
   });
 }
 
+export function useAdminProducts() {
+  const { actor, isFetching } = useActor();
+  return useQuery<ProductWithMarketPrice[]>({
+    queryKey: ["adminProducts"],
+    queryFn: async () => {
+      if (!actor) {
+        console.log("[useAdminProducts] Actor not ready — returning empty");
+        return [];
+      }
+      try {
+        console.log("[useAdminProducts] Fetching products from backend");
+        const result = await actor.getProducts();
+        console.log(
+          `[useAdminProducts] Got ${result.length} products from backend`,
+        );
+        return result as ProductWithMarketPrice[];
+      } catch (err) {
+        console.error("[useAdminProducts] Backend call failed:", err);
+        return [];
+      }
+    },
+    enabled: !!actor && !isFetching,
+    staleTime: 0,
+  });
+}
+
 export function useAddProduct() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Omit<Product, "id" | "createdAt">) => {
-      const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
-      if (!actor || !isConnected) {
-        toast.error(
-          "Please log in with Internet Identity in the admin panel first",
-        );
+      if (!actor) {
         throw new Error(
-          "Please log in with Internet Identity in the admin panel first",
+          "Not connected to backend. Please log in with Internet Identity first.",
         );
       }
+      console.log("[useAddProduct] Adding product to backend:", data.name);
       await actor.addProduct(
         data.name,
         data.brand,
@@ -71,26 +109,29 @@ export function useAddProduct() {
         data.stock,
         data.imageUrl,
       );
+      console.log("[useAddProduct] Product added successfully:", data.name);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["adminProducts"] });
+    },
   });
 }
 
 export function useUpdateProduct() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Product) => {
-      const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
-      if (!actor || !isConnected) {
-        toast.error(
-          "Please log in with Internet Identity in the admin panel first",
-        );
+      if (!actor) {
         throw new Error(
-          "Please log in with Internet Identity in the admin panel first",
+          "Not connected to backend. Please log in with Internet Identity first.",
         );
       }
+      console.log(
+        "[useUpdateProduct] Updating product on backend:",
+        data.id.toString(),
+      );
       await actor.updateProduct(
         data.id,
         data.name,
@@ -105,9 +146,14 @@ export function useUpdateProduct() {
         data.stock,
         data.imageUrl,
       );
+      console.log(
+        "[useUpdateProduct] Product updated successfully:",
+        data.id.toString(),
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["adminProducts"] });
       qc.invalidateQueries({ queryKey: ["product"] });
     },
   });
@@ -115,22 +161,28 @@ export function useUpdateProduct() {
 
 export function useDeleteProduct() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: bigint) => {
-      const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
-      if (!actor || !isConnected) {
-        toast.error(
-          "Please log in with Internet Identity in the admin panel first",
-        );
+      if (!actor) {
         throw new Error(
-          "Please log in with Internet Identity in the admin panel first",
+          "Not connected to backend. Please log in with Internet Identity first.",
         );
       }
+      console.log(
+        "[useDeleteProduct] Deleting product from backend:",
+        id.toString(),
+      );
       await actor.deleteProduct(id);
+      console.log(
+        "[useDeleteProduct] Product deleted successfully:",
+        id.toString(),
+      );
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["adminProducts"] });
+    },
   });
 }
 
@@ -184,22 +236,6 @@ export function useUpdateOrderStatus() {
   });
 }
 
-/* ─── Admin Products (no sample fallback — real canister state) ─── */
-
-export function useAdminProducts() {
-  const { actor, isFetching } = useActor();
-  return useQuery<ProductWithMarketPrice[]>({
-    queryKey: ["adminProducts"],
-    queryFn: async () => {
-      if (!actor) return [];
-      const result = await actor.getProducts();
-      return result as ProductWithMarketPrice[];
-    },
-    enabled: !isFetching,
-    staleTime: 0, // always fresh for admin
-  });
-}
-
 /* ─── Auth / Admin ─── */
 
 export function useIsAdmin() {
@@ -210,9 +246,12 @@ export function useIsAdmin() {
     queryKey: ["isAdmin"],
     queryFn: async () => {
       if (!actor || !isConnected) return false;
-      return actor.isCallerAdmin();
+      console.log("[useIsAdmin] Checking admin status on backend");
+      const result = await actor.isCallerAdmin();
+      console.log("[useIsAdmin] Admin status:", result);
+      return result;
     },
-    enabled: !isFetching && isConnected,
+    enabled: !isFetching && isConnected && !!actor,
   });
 }
 
@@ -222,16 +261,14 @@ export function useActivateAdmin() {
   return useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Not connected to backend");
-      const token = (import.meta.env.VITE_ADMIN_TOKEN as string) ?? "";
-      // _initializeAccessControlWithSecret is defined in the backend mixin
-      // but may not be in the generated d.ts — cast through unknown to call it
+      console.log("[useActivateAdmin] Registering caller as admin");
       const actorAny = actor as unknown as {
         _initializeAccessControlWithSecret: (secret: string) => Promise<void>;
       };
-      await actorAny._initializeAccessControlWithSecret(token);
+      await actorAny._initializeAccessControlWithSecret("");
+      console.log("[useActivateAdmin] Admin registration successful");
     },
     onSuccess: () => {
-      sessionStorage.setItem("admin_activated", "true");
       qc.invalidateQueries({ queryKey: ["isAdmin"] });
     },
   });
