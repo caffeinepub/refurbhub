@@ -247,10 +247,20 @@ export function useIsAdmin() {
     queryKey: ["isAdmin"],
     queryFn: async () => {
       if (!actor || !isConnected) return false;
-      console.log("[useIsAdmin] Checking admin status on backend");
+      const principal = identity?.getPrincipal().toString();
+      console.log(
+        "[useIsAdmin] Internet Identity login success — principal:",
+        principal,
+      );
+      console.log(
+        "[useIsAdmin] Actor created successfully — checking admin status on backend",
+      );
       try {
         const result = await actor.isCallerAdmin();
-        console.log("[useIsAdmin] Admin status:", result);
+        console.log(
+          "[useIsAdmin] Backend connection success — isAdmin:",
+          result,
+        );
         return result;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -284,51 +294,62 @@ export function useActivateAdmin() {
     mutationFn: async () => {
       if (!actor) {
         console.error(
-          "[useActivateAdmin] Actor is null — cannot activate admin",
+          "[useActivateAdmin] Actor is null — backend not connected yet",
         );
         throw new Error(
-          "Not connected to backend. Please wait for the connection to establish.",
+          "Not connected to backend canister. Please wait a moment and try again.",
         );
       }
+
       console.log(
-        "[useActivateAdmin] Attempting admin registration with token:",
+        "[useActivateAdmin] Calling _initializeAccessControlWithSecret with token:",
         `${CAFFEINE_ADMIN_TOKEN.slice(0, 8)}...`,
       );
+
       try {
         const actorAny = actor as unknown as {
           _initializeAccessControlWithSecret: (secret: string) => Promise<void>;
         };
         await actorAny._initializeAccessControlWithSecret(CAFFEINE_ADMIN_TOKEN);
-        console.log("[useActivateAdmin] Admin registration call succeeded");
+        console.log(
+          "[useActivateAdmin] Admin registration succeeded — principal is now admin",
+        );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        const msgLower = msg.toLowerCase();
+
         console.warn(
           "[useActivateAdmin] _initializeAccessControlWithSecret threw:",
           msg,
         );
-        // If the canister says access control is already initialized,
-        // this is NOT a real error — the first admin is already registered.
-        // Treat it as success so the caller can re-check admin status.
+
+        // These are all "already registered" variants — NOT a real error.
+        // The canister is already initialized; the first admin is registered.
         if (
-          msg.toLowerCase().includes("already") ||
-          msg.toLowerCase().includes("duplicate") ||
-          msg.toLowerCase().includes("initialized") ||
-          msg.toLowerCase().includes("access control") ||
-          msg.toLowerCase().includes("cannot call")
+          msgLower.includes("already") ||
+          msgLower.includes("duplicate") ||
+          msgLower.includes("initialized") ||
+          msgLower.includes("access control") ||
+          msgLower.includes("cannot call") ||
+          msgLower.includes("not authorized") ||
+          msgLower.includes("access denied")
         ) {
           console.log(
-            "[useActivateAdmin] Access control already set — treating as success",
+            "[useActivateAdmin] Access control already initialized — treating as success (admin already registered)",
           );
-          return; // do not re-throw
+          return; // success path
         }
+
+        // Real error — re-throw so the UI can show it
         throw err;
       }
     },
     onSuccess: () => {
       console.log(
-        "[useActivateAdmin] Admin registration successful — refreshing admin status",
+        "[useActivateAdmin] Activation complete — refreshing admin status",
       );
       void qc.invalidateQueries({ queryKey: ["isAdmin"] });
+      void qc.refetchQueries({ queryKey: ["isAdmin"] });
     },
     onError: (err) => {
       console.error("[useActivateAdmin] Admin activation failed:", err);

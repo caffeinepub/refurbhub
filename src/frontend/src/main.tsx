@@ -15,18 +15,20 @@ declare global {
   }
 }
 
-// Seed the admin token into sessionStorage so useActor can find it via
-// getSecretParameter("caffeineAdminToken"). This must run before any actor
-// is constructed. The token is only used on the very first authenticated call
-// to _initializeAccessControlWithSecret — after the first admin is registered
-// the canister ignores subsequent calls from already-registered principals.
+// Seed the admin token into sessionStorage before any actor is built.
+// useActor reads this via getSecretParameter("caffeineAdminToken") and passes
+// it to _initializeAccessControlWithSecret. Without this, the token is empty
+// and the canister rejects the call, causing "Could not connect to backend".
 try {
-  const existingToken = sessionStorage.getItem("caffeineAdminToken");
-  if (!existingToken || existingToken.trim() === "") {
+  const existing = sessionStorage.getItem("caffeineAdminToken");
+  if (!existing || existing.trim() === "") {
     sessionStorage.setItem("caffeineAdminToken", CAFFEINE_ADMIN_TOKEN);
+    console.log("[main] Admin token seeded into sessionStorage");
+  } else {
+    console.log("[main] Admin token already present in sessionStorage");
   }
-} catch {
-  // sessionStorage not available (private browsing with strict settings)
+} catch (err) {
+  console.warn("[main] Could not access sessionStorage:", err);
 }
 
 const queryClient = new QueryClient();
