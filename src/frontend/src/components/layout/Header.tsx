@@ -34,14 +34,16 @@ export function Header() {
           <Link
             to="/"
             data-ocid="nav.logo_link"
-            className="flex items-center gap-2 font-display font-extrabold text-xl text-foreground hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 font-display font-black text-2xl text-foreground hover:opacity-90 transition-opacity"
           >
-            <span className="w-8 h-8 brand-gradient rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-md">
-              R
-            </span>
+            <img
+              src="/assets/uploads/ChatGPT-Image-Mar-6-2026-06_53_30-PM-1.png"
+              alt="RefurbHub logo"
+              className="w-9 h-9 rounded-lg shadow-md object-cover"
+            />
             <span>
               <span className="text-foreground">Refurb</span>
-              <span style={{ color: "#0B2A4A" }}> Hub</span>
+              <span style={{ color: "#0B2A4A" }}>Hub</span>
             </span>
           </Link>
 

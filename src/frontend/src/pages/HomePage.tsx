@@ -25,7 +25,6 @@ import {
   RotateCcw,
   Server,
   ShieldCheck,
-  ShoppingCart,
   Star,
   Tag,
   Wrench,
@@ -35,7 +34,42 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { HeroCarousel } from "../components/HeroCarousel";
 import { ProductCard } from "../components/ProductCard";
+import type { ProductWithMarketPrice } from "../data/sampleProducts";
 import { useProducts } from "../hooks/useQueries";
+
+/* ─── localStorage helpers for home section customization ─── */
+
+const LS_FEATURED = "refurbhub_featured_ids";
+const LS_TOP_PICKS = "refurbhub_top_picks_ids";
+const LS_HOT_DEALS = "refurbhub_hot_deals_ids";
+
+function getStoredIds(key: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "[]") as string[];
+  } catch {
+    return [];
+  }
+}
+
+function filterByIds(
+  products: ProductWithMarketPrice[],
+  ids: string[],
+  fallbackCount: number,
+): ProductWithMarketPrice[] {
+  if (ids.length === 0) return products.slice(0, fallbackCount);
+  const ordered = ids
+    .map((id) => products.find((p) => p.id.toString() === id))
+    .filter(Boolean) as ProductWithMarketPrice[];
+  return ordered.length > 0 ? ordered : products.slice(0, fallbackCount);
+}
+
+function formatPrice(n: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -47,45 +81,6 @@ const stagger = {
 };
 
 /* ─── Data ─── */
-
-const SHOWCASE_PRODUCTS = [
-  {
-    image: "/assets/generated/product-card-hp-elitebook.dim_600x450.jpg",
-    brand: "HP",
-    name: "HP EliteBook 840 G9",
-    specs: "Intel i7, 16GB RAM, 512GB SSD",
-    price: "₹42,999",
-    originalPrice: "₹95,000",
-    savePct: 55,
-  },
-  {
-    image: "/assets/generated/product-card-dell-latitude.dim_600x450.jpg",
-    brand: "Dell",
-    name: "Dell Latitude 5420",
-    specs: "Intel i5, 8GB RAM, 256GB SSD",
-    price: "₹28,999",
-    originalPrice: "₹65,000",
-    savePct: 55,
-  },
-  {
-    image: "/assets/generated/product-card-lenovo-thinkpad.dim_600x450.jpg",
-    brand: "Lenovo",
-    name: "Lenovo ThinkPad X1 Carbon",
-    specs: "Intel i7, 16GB RAM, 512GB SSD",
-    price: "₹55,999",
-    originalPrice: "₹1,20,000",
-    savePct: 53,
-  },
-  {
-    image: "/assets/generated/product-card-macbook-pro.dim_600x450.jpg",
-    brand: "Apple",
-    name: "Apple MacBook Pro M1",
-    specs: "Apple M1, 8GB RAM, 256GB SSD",
-    price: "₹75,999",
-    originalPrice: "₹1,30,000",
-    savePct: 42,
-  },
-];
 
 const CATEGORIES = [
   {
@@ -227,36 +222,6 @@ const TESTIMONIALS = [
   },
 ];
 
-const DEALS = [
-  {
-    image: "/assets/generated/product-card-hp-elitebook.dim_600x450.jpg",
-    name: "HP EliteBook 840 G9",
-    price: "₹42,999",
-    originalPrice: "₹95,000",
-    save: "Save 55%",
-    badgeColor: "bg-rose-500",
-    stock: "Only 3 left",
-  },
-  {
-    image: "/assets/generated/product-card-dell-latitude.dim_600x450.jpg",
-    name: "Dell Latitude 5420",
-    price: "₹28,999",
-    originalPrice: "₹72,000",
-    save: "Save 60%",
-    badgeColor: "bg-emerald-600",
-    stock: "2 remaining",
-  },
-  {
-    image: "/assets/generated/product-card-lenovo-thinkpad.dim_600x450.jpg",
-    name: "Lenovo ThinkPad X1",
-    price: "₹55,999",
-    originalPrice: "₹1,12,000",
-    save: "Save 50%",
-    badgeColor: "bg-violet-600",
-    stock: "Last 4 units",
-  },
-];
-
 const REQUEST_TYPES = [
   "Bulk Laptop Order",
   "Specific Laptop Model",
@@ -277,7 +242,15 @@ export function HomePage() {
     requestType: "",
   });
 
-  const featuredProducts = products.slice(0, 4);
+  // Dynamic sections driven by admin-selected IDs stored in localStorage
+  const featuredIds = getStoredIds(LS_FEATURED);
+  const featuredProducts = filterByIds(products, featuredIds, 4);
+
+  const topPicksIds = getStoredIds(LS_TOP_PICKS);
+  const topPicksProducts = filterByIds(products, topPicksIds, 4);
+
+  const hotDealsIds = getStoredIds(LS_HOT_DEALS);
+  const hotDealsProducts = filterByIds(products, hotDealsIds, 3);
 
   const handleBannerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,11 +267,6 @@ export function HomePage() {
     );
     toast.success("Request submitted! We'll reach out shortly.");
     setBannerForm({ name: "", email: "", phone: "", requestType: "" });
-  };
-
-  const handleAddToCart = (name: string) => {
-    toast.success("Added to cart!");
-    void name;
   };
 
   return (
@@ -409,61 +377,6 @@ export function HomePage() {
           </motion.div>
         )}
 
-        {/* Static showcase cards */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-60px" }}
-          variants={stagger}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-        >
-          {SHOWCASE_PRODUCTS.map((p, i) => (
-            <motion.div
-              key={p.name}
-              variants={fadeUp}
-              data-ocid={`showcase.product.item.${i + 1}`}
-              className="premium-card card-hover bg-card rounded-2xl overflow-hidden border border-border/50 group"
-            >
-              <div className="relative aspect-[4/3] bg-muted overflow-hidden">
-                <img
-                  src={p.image}
-                  alt={p.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
-                />
-                <span className="absolute top-2 left-2 brand-gradient text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                  -{p.savePct}%
-                </span>
-              </div>
-              <div className="p-4 space-y-2">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                  {p.brand}
-                </p>
-                <h3 className="font-display font-semibold text-foreground text-sm leading-snug">
-                  {p.name}
-                </h3>
-                <p className="text-xs text-muted-foreground">{p.specs}</p>
-                <div className="flex items-baseline gap-2 pt-1">
-                  <span className="font-display font-bold text-foreground text-lg">
-                    {p.price}
-                  </span>
-                  <span className="text-muted-foreground text-xs line-through">
-                    {p.originalPrice}
-                  </span>
-                </div>
-                <Button
-                  className="w-full h-9 text-sm mt-1 brand-gradient border-0 text-white"
-                  data-ocid={`showcase.add_to_cart_button.${i + 1}`}
-                  onClick={() => handleAddToCart(p.name)}
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Add to Cart
-                </Button>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
-
         <div className="mt-8 text-center sm:hidden">
           <Link to="/shop">
             <Button variant="outline" className="gap-2">
@@ -516,8 +429,10 @@ export function HomePage() {
                     {/* Gradient overlay */}
                     <div className="category-card-overlay absolute inset-0" />
                     {/* Content */}
-                    <div className="absolute inset-0 flex flex-col justify-end p-4">
-                      <Icon className="h-5 w-5 text-white/80 mb-2" />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                      <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center mb-2">
+                        <Icon className="h-5 w-5 text-white" />
+                      </div>
                       <h3 className="font-display font-bold text-white text-sm leading-tight">
                         {name}
                       </h3>
@@ -559,74 +474,107 @@ export function HomePage() {
             </Link>
           </div>
 
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-          >
-            {SHOWCASE_PRODUCTS.map((p, i) => {
-              const badgeConfig = [
-                { label: "Top Deal", cls: "bg-[#1E5EFF] text-white" },
-                { label: "Best Seller", cls: "bg-[#6B7280] text-white" },
-                { label: "Staff Pick", cls: "bg-[#1E5EFF] text-white" },
-                { label: "Top Deal", cls: "bg-[#6B7280] text-white" },
-              ][i] ?? { label: "Top Deal", cls: "bg-[#1E5EFF] text-white" };
-              return (
-                <motion.div
-                  key={`trending-${p.name}`}
-                  variants={fadeUp}
-                  data-ocid={`trending.item.${i + 1}`}
-                  className="premium-card card-hover bg-card rounded-2xl overflow-hidden border border-border/50 group"
-                >
-                  <div className="relative aspect-[3/4] bg-muted overflow-hidden">
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
-                    />
-                    <div className="absolute top-2 left-2 flex gap-1.5">
-                      <span
-                        className={`${badgeConfig.cls} text-xs font-semibold px-2.5 py-1 rounded-full`}
+          {topPicksProducts.length === 0 && !isLoading ? (
+            <p
+              className="text-muted-foreground text-sm py-8 text-center"
+              data-ocid="trending.empty_state"
+            >
+              No products selected yet. Configure Top Picks in the admin panel.
+            </p>
+          ) : (
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={stagger}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+            >
+              {isLoading
+                ? [1, 2, 3, 4].map((k) => (
+                    <div key={k} className="rounded-2xl overflow-hidden">
+                      <Skeleton className="aspect-[4/3] w-full" />
+                      <div className="p-4 space-y-3">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                        <Skeleton className="h-9 w-full" />
+                      </div>
+                    </div>
+                  ))
+                : topPicksProducts.map((p, i) => {
+                    const badgeConfig = [
+                      { label: "Top Deal", cls: "bg-[#1E5EFF] text-white" },
+                      { label: "Best Seller", cls: "bg-[#6B7280] text-white" },
+                      { label: "Staff Pick", cls: "bg-[#1E5EFF] text-white" },
+                      { label: "Top Deal", cls: "bg-[#6B7280] text-white" },
+                    ][i] ?? {
+                      label: "Top Deal",
+                      cls: "bg-[#1E5EFF] text-white",
+                    };
+                    const savePct =
+                      p.price > 0 && p.discountPrice > 0
+                        ? Math.round(
+                            ((p.price - p.discountPrice) / p.price) * 100,
+                          )
+                        : 0;
+                    return (
+                      <motion.div
+                        key={`trending-${p.id.toString()}`}
+                        variants={fadeUp}
+                        data-ocid={`trending.item.${i + 1}`}
                       >
-                        {badgeConfig.label}
-                      </span>
-                    </div>
-                    <span className="absolute top-2 right-2 brand-gradient text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                      -{p.savePct}%
-                    </span>
-                  </div>
-                  <div className="p-4 space-y-2">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                      {p.brand}
-                    </p>
-                    <h3 className="font-display font-semibold text-foreground text-sm leading-snug">
-                      {p.name}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">{p.specs}</p>
-                    <div className="flex items-baseline gap-2 pt-1">
-                      <span className="font-display font-bold text-foreground text-lg">
-                        {p.price}
-                      </span>
-                      <span className="text-muted-foreground text-xs line-through">
-                        {p.originalPrice}
-                      </span>
-                    </div>
-                    <Button
-                      className="w-full h-9 text-sm mt-1 brand-gradient border-0 text-white"
-                      data-ocid={`trending.add_to_cart_button.${i + 1}`}
-                      onClick={() => handleAddToCart(p.name)}
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Add to Cart
-                    </Button>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </motion.div>
+                        <Link
+                          to="/product/$id"
+                          params={{ id: p.id.toString() }}
+                          className="block premium-card card-hover bg-card rounded-2xl overflow-hidden border border-border/50 group"
+                        >
+                          <div className="relative aspect-[3/4] bg-muted overflow-hidden">
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              loading="lazy"
+                            />
+                            <div className="absolute top-2 left-2 flex gap-1.5">
+                              <span
+                                className={`${badgeConfig.cls} text-xs font-semibold px-2.5 py-1 rounded-full`}
+                              >
+                                {badgeConfig.label}
+                              </span>
+                            </div>
+                            {savePct > 0 && (
+                              <span className="absolute top-2 right-2 brand-gradient text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                -{savePct}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-4 space-y-2">
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                              {p.brand}
+                            </p>
+                            <h3 className="font-display font-semibold text-foreground text-sm leading-snug">
+                              {p.name}
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                              {p.processor}, {p.ram}, {p.storage}
+                            </p>
+                            <div className="flex items-baseline gap-2 pt-1">
+                              <span className="font-display font-bold text-foreground text-lg">
+                                {formatPrice(p.discountPrice || p.price)}
+                              </span>
+                              {p.discountPrice > 0 &&
+                                p.price > p.discountPrice && (
+                                  <span className="text-muted-foreground text-xs line-through">
+                                    {formatPrice(p.price)}
+                                  </span>
+                                )}
+                            </div>
+                          </div>
+                        </Link>
+                      </motion.div>
+                    );
+                  })}
+            </motion.div>
+          )}
 
           <div className="mt-6 text-center sm:hidden">
             <Link to="/shop">
@@ -899,68 +847,107 @@ export function HomePage() {
             </p>
           </div>
 
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="grid grid-cols-1 md:grid-cols-3 gap-4"
-          >
-            {DEALS.map(
-              (
-                { image, name, price, originalPrice, save, badgeColor, stock },
-                i,
-              ) => (
-                <motion.div
-                  key={name}
-                  variants={fadeUp}
-                  data-ocid={`deals.item.${i + 1}`}
-                  className="bg-white/10 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/15 hover:bg-white/15 transition-all group"
-                >
-                  <div className="relative aspect-[16/9] overflow-hidden">
-                    <img
-                      src={image}
-                      alt={name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
-                    />
-                    <span
-                      className={`absolute top-3 left-3 ${badgeColor} text-white text-xs font-extrabold px-3 py-1.5 rounded-full shadow-lg`}
+          {hotDealsProducts.length === 0 && !isLoading ? (
+            <p
+              className="text-white/60 text-sm py-8 text-center"
+              data-ocid="deals.empty_state"
+            >
+              No deals selected yet. Configure Hot Deals in the admin panel.
+            </p>
+          ) : (
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={stagger}
+              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            >
+              {isLoading
+                ? [1, 2, 3].map((k) => (
+                    <div
+                      key={k}
+                      className="rounded-2xl overflow-hidden bg-white/10"
                     >
-                      {save}
-                    </span>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-display font-bold text-white text-base mb-1">
-                      {name}
-                    </h3>
-                    <div className="flex items-baseline gap-2 mb-3">
-                      <span className="font-display font-extrabold text-white text-xl">
-                        {price}
-                      </span>
-                      <span className="text-white/40 text-sm line-through">
-                        {originalPrice}
-                      </span>
+                      <Skeleton className="aspect-[16/9] w-full opacity-30" />
+                      <div className="p-4 space-y-3">
+                        <Skeleton className="h-4 w-3/4 opacity-30" />
+                        <Skeleton className="h-3 w-1/2 opacity-30" />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
-                      <span className="text-rose-300 text-xs font-semibold">
-                        {stock}
-                      </span>
-                    </div>
-                    <Button
-                      className="w-full brand-gradient border-0 text-white"
-                      data-ocid={`deals.add_to_cart_button.${i + 1}`}
-                      onClick={() => handleAddToCart(name)}
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Add to Cart
-                    </Button>
-                  </div>
-                </motion.div>
-              ),
-            )}
-          </motion.div>
+                  ))
+                : hotDealsProducts.map((p, i) => {
+                    const savePct =
+                      p.price > 0 && p.discountPrice > 0
+                        ? Math.round(
+                            ((p.price - p.discountPrice) / p.price) * 100,
+                          )
+                        : 0;
+                    const stockLabel =
+                      Number(p.stock) <= 3
+                        ? `Only ${p.stock.toString()} left`
+                        : Number(p.stock) <= 6
+                          ? `${p.stock.toString()} remaining`
+                          : "In Stock";
+                    const badgeColors = [
+                      "bg-rose-500",
+                      "bg-emerald-600",
+                      "bg-violet-600",
+                    ];
+                    const badgeColor = badgeColors[i % badgeColors.length];
+                    return (
+                      <motion.div
+                        key={`deal-${p.id.toString()}`}
+                        variants={fadeUp}
+                        data-ocid={`deals.item.${i + 1}`}
+                      >
+                        <Link
+                          to="/product/$id"
+                          params={{ id: p.id.toString() }}
+                          className="block bg-white/10 backdrop-blur-sm rounded-2xl overflow-hidden border border-white/15 hover:bg-white/15 transition-all group"
+                        >
+                          <div className="relative aspect-[16/9] overflow-hidden">
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              loading="lazy"
+                            />
+                            {savePct > 0 && (
+                              <span
+                                className={`absolute top-3 left-3 ${badgeColor} text-white text-xs font-extrabold px-3 py-1.5 rounded-full shadow-lg`}
+                              >
+                                Save {savePct}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-4">
+                            <h3 className="font-display font-bold text-white text-base mb-1">
+                              {p.name}
+                            </h3>
+                            <div className="flex items-baseline gap-2 mb-3">
+                              <span className="font-display font-extrabold text-white text-xl">
+                                {formatPrice(p.discountPrice || p.price)}
+                              </span>
+                              {p.discountPrice > 0 &&
+                                p.price > p.discountPrice && (
+                                  <span className="text-white/40 text-sm line-through">
+                                    {formatPrice(p.price)}
+                                  </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                              <span className="text-rose-300 text-xs font-semibold">
+                                {stockLabel}
+                              </span>
+                            </div>
+                          </div>
+                        </Link>
+                      </motion.div>
+                    );
+                  })}
+            </motion.div>
+          )}
         </div>
       </section>
 

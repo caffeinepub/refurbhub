@@ -9,6 +9,8 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Heart,
   Package,
   RotateCcw,
@@ -19,6 +21,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { ProductCard } from "../components/ProductCard";
 import { useCart } from "../contexts/CartContext";
@@ -55,8 +58,19 @@ export function ProductPage() {
   const typedProduct = product as ProductWithMarketPrice | null | undefined;
   const { addToCart } = useCart();
   const { toggleWishlist, isWishlisted } = useWishlist();
+  const [activeIdx, setActiveIdx] = useState(0);
 
   const wishlisted = product ? isWishlisted(product.id) : false;
+
+  // Build images array from all available image URLs
+  const images =
+    ((typedProduct as ProductWithMarketPrice & { imageUrls?: string[] })
+      ?.imageUrls?.length ?? 0) > 0
+      ? (
+          (typedProduct as ProductWithMarketPrice & { imageUrls?: string[] })
+            ?.imageUrls ?? []
+        ).filter(Boolean)
+      : ([product?.imageUrl].filter(Boolean) as string[]);
 
   const similar = allProducts
     .filter((p) => p.id !== productId && p.brand === product?.brand)
@@ -135,15 +149,86 @@ export function ProductPage() {
         transition={{ duration: 0.4 }}
         className="grid lg:grid-cols-2 gap-12 mb-16"
       >
-        {/* Image */}
+        {/* Image Carousel */}
         <div className="space-y-4">
-          <div className="rounded-3xl overflow-hidden bg-muted aspect-[4/3] shadow-card">
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="w-full h-full object-cover"
-            />
+          <div
+            data-ocid="product.image_carousel"
+            className="relative rounded-3xl overflow-hidden bg-muted aspect-[4/3] shadow-card group"
+          >
+            {/* Main image */}
+            {images.length > 0 ? (
+              <img
+                src={images[activeIdx]}
+                alt={`${product.name} — view ${activeIdx + 1}`}
+                className="w-full h-full object-cover transition-opacity duration-300"
+                key={activeIdx}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground text-sm">
+                No image available
+              </div>
+            )}
+
+            {/* Arrow navigation — only visible when multiple images */}
+            {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  data-ocid="product.carousel_prev"
+                  aria-label="Previous image"
+                  onClick={() =>
+                    setActiveIdx((i) => (i === 0 ? images.length - 1 : i - 1))
+                  }
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white z-10"
+                >
+                  <ChevronLeft className="h-5 w-5 text-foreground" />
+                </button>
+                <button
+                  type="button"
+                  data-ocid="product.carousel_next"
+                  aria-label="Next image"
+                  onClick={() =>
+                    setActiveIdx((i) => (i === images.length - 1 ? 0 : i + 1))
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white z-10"
+                >
+                  <ChevronRight className="h-5 w-5 text-foreground" />
+                </button>
+
+                {/* Slide counter */}
+                <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-sm text-white text-xs font-medium px-2.5 py-1 rounded-full">
+                  {activeIdx + 1} / {images.length}
+                </div>
+              </>
+            )}
           </div>
+
+          {/* Thumbnail strip — only show when multiple images */}
+          {images.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {images.map((src, idx) => (
+                <button
+                  key={`thumb-${src.slice(-20)}-${idx}`}
+                  type="button"
+                  data-ocid={`product.thumbnail.${idx + 1}`}
+                  onClick={() => setActiveIdx(idx)}
+                  className={cn(
+                    "shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all duration-200 hover:opacity-100",
+                    activeIdx === idx
+                      ? "border-primary ring-2 ring-primary/30 opacity-100"
+                      : "border-border opacity-60 hover:border-primary/50",
+                  )}
+                  aria-label={`View image ${idx + 1}`}
+                >
+                  <img
+                    src={src}
+                    alt={`${product.name} thumbnail ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Details */}

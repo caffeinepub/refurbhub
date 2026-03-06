@@ -33,9 +33,11 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1 space-y-4">
             <div className="flex items-center gap-2">
-              <span className="w-9 h-9 brand-gradient rounded-lg flex items-center justify-center text-white text-base font-bold shadow-md">
-                R
-              </span>
+              <img
+                src="/assets/uploads/ChatGPT-Image-Mar-6-2026-06_53_30-PM-1.png"
+                alt="RefurbHub logo"
+                className="w-9 h-9 rounded-lg shadow-md object-cover"
+              />
               <span className="font-display font-extrabold text-2xl">
                 <span className="text-background">Refurb</span>
                 <span style={{ color: "#4A90D9" }}> Hub</span>
@@ -155,7 +157,7 @@ export function Footer() {
               <li className="flex items-start gap-3">
                 <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <span className="text-sm text-background/60">
-                  Bengaluru, Karnataka, India
+                  New Delhi, India
                 </span>
               </li>
             </ul>

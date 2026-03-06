@@ -12,6 +12,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -45,16 +53,19 @@ import {
   Bot,
   CheckCircle2,
   Download,
+  ExternalLink,
   Eye,
   EyeOff,
   FileText,
   Inbox,
+  LayoutDashboard,
   Loader2,
   Lock,
   Mail,
   Package,
   Pencil,
   Plus,
+  Save,
   ShoppingBag,
   Trash2,
   Upload,
@@ -98,7 +109,7 @@ const EMPTY_PRODUCT = {
   marketPrice: 0,
   description: "",
   stock: 1,
-  imageUrl: "",
+  imageUrls: [] as string[],
 };
 
 type ProductFormData = typeof EMPTY_PRODUCT;
@@ -130,13 +141,59 @@ function ProductFormDialog({
           marketPrice: 0,
           description: initial.description,
           stock: Number(initial.stock),
-          imageUrl: initial.imageUrl,
+          imageUrls:
+            (initial as unknown as { imageUrls?: string[] }).imageUrls ??
+            (initial.imageUrl ? [initial.imageUrl] : []),
         }
       : EMPTY_PRODUCT,
   );
+  const [urlInput, setUrlInput] = useState("");
+  const [addMode, setAddMode] = useState<"url" | "upload">("url");
 
-  const set = (k: keyof ProductFormData, v: string | number) =>
+  const set = (k: keyof ProductFormData, v: string | number | string[]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
+
+  const MAX_IMAGES = 5;
+
+  const addImageUrl = () => {
+    const trimmed = urlInput.trim();
+    if (!trimmed) return;
+    if (form.imageUrls.length >= MAX_IMAGES) {
+      toast.error(`Maximum ${MAX_IMAGES} images allowed`);
+      return;
+    }
+    setForm((prev) => ({ ...prev, imageUrls: [...prev.imageUrls, trimmed] }));
+    setUrlInput("");
+  };
+
+  const removeImage = (idx: number) => {
+    setForm((prev) => ({
+      ...prev,
+      imageUrls: prev.imageUrls.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (form.imageUrls.length >= MAX_IMAGES) {
+      toast.error(`Maximum ${MAX_IMAGES} images allowed`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result;
+      if (typeof dataUrl === "string") {
+        setForm((prev) => ({
+          ...prev,
+          imageUrls: [...prev.imageUrls, dataUrl],
+        }));
+      }
+    };
+    reader.readAsDataURL(file);
+    // Reset input so same file can be re-selected
+    e.target.value = "";
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -300,15 +357,125 @@ function ProductFormDialog({
                 data-ocid="admin.product_dialog.stock_input"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Image URL</Label>
-              <Input
-                placeholder="https://..."
-                value={form.imageUrl}
-                onChange={(e) => set("imageUrl", e.target.value)}
-                data-ocid="admin.product_dialog.image_url_input"
-              />
-            </div>
+          </div>
+
+          {/* Multi-image section — full width below the grid */}
+          <div className="space-y-3">
+            <Label>
+              Product Images (up to {MAX_IMAGES})
+              <span className="ml-2 text-xs text-muted-foreground font-normal">
+                {form.imageUrls.length}/{MAX_IMAGES} added
+              </span>
+            </Label>
+
+            {/* Thumbnail list */}
+            {form.imageUrls.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {form.imageUrls.map((url, idx) => (
+                  <div
+                    key={`img-${idx}-${url.slice(-10)}`}
+                    className="relative group"
+                  >
+                    <img
+                      src={url}
+                      alt={`Product ${idx + 1}`}
+                      className="w-16 h-16 rounded-lg object-cover border border-border"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src =
+                          "https://placehold.co/64x64?text=?";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                      aria-label="Remove image"
+                    >
+                      <span className="text-xs leading-none">×</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add image controls */}
+            {form.imageUrls.length < MAX_IMAGES && (
+              <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+                {/* Tab switcher */}
+                <div className="flex gap-1 bg-muted rounded-lg p-0.5 w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setAddMode("url")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      addMode === "url"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Paste URL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddMode("upload")}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      addMode === "upload"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Upload File
+                  </button>
+                </div>
+
+                {addMode === "url" ? (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="https://example.com/image.jpg"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addImageUrl();
+                        }
+                      }}
+                      data-ocid="admin.product_dialog.image_url_input"
+                      className="flex-1 h-9 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={addImageUrl}
+                      data-ocid="admin.product_dialog.add_image_url_button"
+                      className="h-9 shrink-0"
+                    >
+                      Add
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-3 cursor-pointer rounded-lg border-2 border-dashed border-border hover:border-primary/50 p-3 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Upload className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        Click to upload image
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        JPG, PNG, WebP, GIF supported
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      data-ocid="admin.product_dialog.upload_button"
+                    />
+                  </label>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -365,8 +532,9 @@ function ProductsTab() {
   const [editProduct, setEditProduct] = useState<Product | null>(null);
 
   const handleAdd = (data: ProductFormData) => {
+    const { imageUrls, ...rest } = data;
     addProduct.mutate(
-      { ...data, stock: BigInt(data.stock) },
+      { ...rest, imageUrl: imageUrls[0] ?? "", stock: BigInt(data.stock) },
       {
         onSuccess: () => {
           toast.success("Product added successfully");
@@ -382,8 +550,14 @@ function ProductsTab() {
 
   const handleEdit = (data: ProductFormData) => {
     if (!editProduct) return;
+    const { imageUrls, ...rest } = data;
     updateProduct.mutate(
-      { ...editProduct, ...data, stock: BigInt(data.stock) },
+      {
+        ...editProduct,
+        ...rest,
+        imageUrl: imageUrls[0] ?? editProduct.imageUrl,
+        stock: BigInt(data.stock),
+      },
       {
         onSuccess: () => {
           toast.success("Product updated");
@@ -501,6 +675,22 @@ function ProductsTab() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          asChild
+                          data-ocid={`admin.view_product_button.${idx + 1}`}
+                        >
+                          <a
+                            href={`/product/${product.id.toString()}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="View product page"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1709,6 +1899,223 @@ function AIAssistantTab() {
   );
 }
 
+/* ─── Home Sections Tab ─── */
+
+const LS_FEATURED = "refurbhub_featured_ids";
+const LS_TOP_PICKS = "refurbhub_top_picks_ids";
+const LS_HOT_DEALS = "refurbhub_hot_deals_ids";
+
+function getHomeSectionIds(key: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "[]") as string[];
+  } catch {
+    return [];
+  }
+}
+
+function HomeSectionsTab() {
+  const { data: products = [], isLoading } = useAdminProducts();
+
+  const [featuredIds, setFeaturedIds] = useState<string[]>(() =>
+    getHomeSectionIds(LS_FEATURED),
+  );
+  const [topPicksIds, setTopPicksIds] = useState<string[]>(() =>
+    getHomeSectionIds(LS_TOP_PICKS),
+  );
+  const [hotDealsIds, setHotDealsIds] = useState<string[]>(() =>
+    getHomeSectionIds(LS_HOT_DEALS),
+  );
+
+  const toggleId = (
+    ids: string[],
+    setIds: React.Dispatch<React.SetStateAction<string[]>>,
+    id: string,
+    max: number,
+  ) => {
+    if (ids.includes(id)) {
+      setIds(ids.filter((i) => i !== id));
+    } else {
+      if (ids.length >= max) {
+        toast.error(`Maximum ${max} products allowed for this section`);
+        return;
+      }
+      setIds([...ids, id]);
+    }
+  };
+
+  const saveSection = (key: string, ids: string[], label: string) => {
+    localStorage.setItem(key, JSON.stringify(ids));
+    toast.success(
+      `${label} updated — ${ids.length} product${ids.length !== 1 ? "s" : ""} selected`,
+    );
+  };
+
+  const SectionCard = ({
+    title,
+    description,
+    ids,
+    setIds,
+    max,
+    lsKey,
+    ocidPrefix,
+    saveOcid,
+  }: {
+    title: string;
+    description: string;
+    ids: string[];
+    setIds: React.Dispatch<React.SetStateAction<string[]>>;
+    max: number;
+    lsKey: string;
+    ocidPrefix: string;
+    saveOcid: string;
+  }) => (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <CardTitle className="font-display text-base">{title}</CardTitle>
+            <CardDescription className="mt-1 text-xs">
+              {description}
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-muted-foreground font-medium">
+              {ids.length}/{max} selected
+            </span>
+            <Button
+              size="sm"
+              onClick={() => saveSection(lsKey, ids, title)}
+              data-ocid={saveOcid}
+              className="gap-1.5 h-8"
+            >
+              <Save className="h-3.5 w-3.5" />
+              Save
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((k) => (
+              <div key={k} className="flex items-center gap-3 p-2 rounded-lg">
+                <Skeleton className="h-5 w-5 rounded" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <Skeleton className="h-4 w-40" />
+              </div>
+            ))}
+          </div>
+        ) : products.length === 0 ? (
+          <p
+            className="text-sm text-muted-foreground py-4 text-center"
+            data-ocid={`${ocidPrefix}.empty_state`}
+          >
+            No products available. Add products first.
+          </p>
+        ) : (
+          <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+            {products.map((product, idx) => {
+              const pid = product.id.toString();
+              const checked = ids.includes(pid);
+              return (
+                <label
+                  key={pid}
+                  htmlFor={`${ocidPrefix}-${pid}`}
+                  className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-colors ${
+                    checked
+                      ? "bg-primary/8 border border-primary/20"
+                      : "hover:bg-muted/60"
+                  }`}
+                >
+                  <Checkbox
+                    id={`${ocidPrefix}-${pid}`}
+                    data-ocid={`${ocidPrefix}.checkbox.${idx + 1}`}
+                    checked={checked}
+                    onCheckedChange={() => toggleId(ids, setIds, pid, max)}
+                  />
+                  <div className="w-8 h-8 rounded-lg overflow-hidden bg-muted shrink-0">
+                    <img
+                      src={
+                        product.imageUrl || "https://placehold.co/32x32?text=?"
+                      }
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src =
+                          "https://placehold.co/32x32?text=?";
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {product.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {product.brand}
+                    </p>
+                  </div>
+                  {checked && (
+                    <span className="text-xs font-semibold text-primary shrink-0">
+                      #{ids.indexOf(pid) + 1}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div data-ocid="admin.home_sections_tab" className="space-y-6">
+      <div>
+        <h3 className="font-display font-semibold text-lg text-foreground">
+          Home Page Sections
+        </h3>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Select which products appear in each homepage section. Changes are
+          saved to this browser and reflected immediately on the homepage.
+        </p>
+      </div>
+
+      <SectionCard
+        title="Featured Products"
+        description="Shown in the first product grid on the homepage. Max 4 products."
+        ids={featuredIds}
+        setIds={setFeaturedIds}
+        max={4}
+        lsKey={LS_FEATURED}
+        ocidPrefix="admin.featured"
+        saveOcid="admin.featured_save_button"
+      />
+
+      <SectionCard
+        title="Top Picks"
+        description="Shown in the 'Top Picks' section. Max 4 products."
+        ids={topPicksIds}
+        setIds={setTopPicksIds}
+        max={4}
+        lsKey={LS_TOP_PICKS}
+        ocidPrefix="admin.top_picks"
+        saveOcid="admin.top_picks_save_button"
+      />
+
+      <SectionCard
+        title="Hot Deals"
+        description="Shown in 'Today's Best Laptop Deals' section. Max 3 products."
+        ids={hotDealsIds}
+        setIds={setHotDealsIds}
+        max={3}
+        lsKey={LS_HOT_DEALS}
+        ocidPrefix="admin.hot_deals"
+        saveOcid="admin.hot_deals_save_button"
+      />
+    </div>
+  );
+}
+
 /* ─── Password Gate ─── */
 
 const ADMIN_PASSWORD = "Armaan@10";
@@ -2317,6 +2724,14 @@ export function AdminPage() {
             AI Assistant
           </TabsTrigger>
           <TabsTrigger
+            value="home-sections"
+            className="gap-2"
+            data-ocid="admin.home_sections_tab"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            Home Sections
+          </TabsTrigger>
+          <TabsTrigger
             value="special-requests"
             className="gap-2"
             data-ocid="admin.special_requests_tab"
@@ -2348,6 +2763,10 @@ export function AdminPage() {
 
         <TabsContent value="ai-assistant">
           <AIAssistantTab />
+        </TabsContent>
+
+        <TabsContent value="home-sections">
+          <HomeSectionsTab />
         </TabsContent>
 
         <TabsContent value="special-requests">
