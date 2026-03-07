@@ -48,7 +48,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Bot,
@@ -66,9 +65,9 @@ import {
   Package,
   Pencil,
   Plus,
-  RefreshCw,
   Save,
-  ShieldCheck,
+  Settings,
+  ShieldOff,
   ShoppingBag,
   Trash2,
   Upload,
@@ -78,10 +77,9 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "../backend.d";
-import { CAFFEINE_ADMIN_TOKEN } from "../data/adminToken";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
-  useActorStatus,
   useAddProduct,
   useAdminProducts,
   useDeleteProduct,
@@ -529,6 +527,7 @@ function ProductsTab() {
   const addProduct = useAddProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
+  const { actor } = useActor();
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -542,10 +541,11 @@ function ProductsTab() {
           toast.success("Product added successfully");
           setShowAddDialog(false);
         },
-        onError: (err) =>
-          toast.error(
-            err instanceof Error ? err.message : "Failed to add product",
-          ),
+        onError: (err) => {
+          const msg =
+            err instanceof Error ? err.message : "Failed to add product";
+          toast.error(msg);
+        },
       },
     );
   };
@@ -565,7 +565,11 @@ function ProductsTab() {
           toast.success("Product updated");
           setEditProduct(null);
         },
-        onError: () => toast.error("Failed to update product"),
+        onError: (err) => {
+          const msg =
+            err instanceof Error ? err.message : "Failed to update product";
+          toast.error(msg);
+        },
       },
     );
   };
@@ -577,12 +581,26 @@ function ProductsTab() {
     });
   };
 
+  // Backend connection indicator
+  const backendConnected = !!actor;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {products.length} products
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            {products.length} products
+          </p>
+          {backendConnected && (
+            <span
+              data-ocid="admin.backend_connected_status"
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full bg-success/10 text-success border border-success/20"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-success" />
+              Backend connected
+            </span>
+          )}
+        </div>
         <Button
           onClick={() => setShowAddDialog(true)}
           data-ocid="admin.add_product_button"
@@ -2431,6 +2449,222 @@ function DarkScreenWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+/* ─── Backend Token Diagnostic ─── */
+
+function BackendDiagnosticTab() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const [tokenVisible, setTokenVisible] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [customToken, setCustomToken] = useState("");
+  const [savingToken, setSavingToken] = useState(false);
+
+  const currentToken =
+    sessionStorage.getItem("caffeineAdminToken") ?? "(not set)";
+  const principal = identity?.getPrincipal().toString() ?? "anonymous";
+
+  const testBackendConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      if (!actor) {
+        setTestResult("❌ Actor is null — not connected to backend");
+        return;
+      }
+      const isAdmin = await actor.isCallerAdmin();
+      if (isAdmin) {
+        setTestResult(
+          "✅ Backend confirms you are ADMIN — product operations will work",
+        );
+      } else {
+        setTestResult(
+          "⚠️ Backend says you are NOT admin. This means your principal is registered as #user in the canister role map. " +
+            "The token sent during actor initialization did not match CAFFEINE_ADMIN_TOKEN, or the canister already had your principal as #user from a previous session. " +
+            "To fix: contact support to redeploy the canister with clean state.",
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setTestResult(`❌ Backend call failed: ${msg}`);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const applyCustomToken = () => {
+    if (!customToken.trim()) return;
+    setSavingToken(true);
+    sessionStorage.setItem("caffeineAdminToken", customToken.trim());
+    setTimeout(() => {
+      setSavingToken(false);
+      window.location.reload();
+    }, 500);
+  };
+
+  const clearTokenAndReload = () => {
+    sessionStorage.removeItem("caffeineAdminToken");
+    window.location.reload();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="font-display font-semibold text-lg text-foreground">
+          Backend Diagnostics
+        </h3>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Use this panel to diagnose why products may not be saving to the
+          backend canister.
+        </p>
+      </div>
+
+      {/* Current state */}
+      <div className="rounded-xl border border-border bg-muted/30 p-5 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Current State
+        </p>
+        <div className="space-y-2 text-sm">
+          <div className="flex gap-3">
+            <span className="text-muted-foreground w-32 shrink-0">
+              Your Principal
+            </span>
+            <code className="text-foreground font-mono text-xs break-all">
+              {principal}
+            </code>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-muted-foreground w-32 shrink-0">
+              Actor Status
+            </span>
+            <span
+              className={
+                actor
+                  ? "text-green-600 font-medium"
+                  : "text-red-500 font-medium"
+              }
+            >
+              {actor ? "Connected" : "Not connected"}
+            </span>
+          </div>
+          <div className="flex gap-3 items-start">
+            <span className="text-muted-foreground w-32 shrink-0">
+              Admin Token
+            </span>
+            <div className="flex items-center gap-2 flex-1">
+              <code className="text-foreground font-mono text-xs break-all">
+                {tokenVisible
+                  ? currentToken
+                  : currentToken.slice(0, 8) +
+                    "•".repeat(Math.max(0, currentToken.length - 8))}
+              </code>
+              <button
+                type="button"
+                onClick={() => setTokenVisible((v) => !v)}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                {tokenVisible ? (
+                  <EyeOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Test button */}
+      <div className="space-y-3">
+        <Button
+          onClick={() => void testBackendConnection()}
+          disabled={testing || !actor}
+          data-ocid="admin.diagnostics.test_button"
+          variant="outline"
+          className="gap-2"
+        >
+          {testing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4" />
+          )}
+          Test Backend Connection
+        </Button>
+        {testResult && (
+          <div
+            data-ocid="admin.diagnostics.test_result"
+            className="rounded-xl border border-border bg-muted/30 p-4 text-sm leading-relaxed"
+          >
+            {testResult}
+          </div>
+        )}
+      </div>
+
+      {/* Custom token override */}
+      <div className="rounded-xl border border-border bg-muted/30 p-5 space-y-4">
+        <div>
+          <p className="text-sm font-semibold text-foreground mb-1">
+            Override Admin Token
+          </p>
+          <p className="text-xs text-muted-foreground">
+            If the Caffeine platform sent a token via URL (e.g.{" "}
+            <code className="font-mono">#caffeineAdminToken=xxx</code>), paste
+            it here. The page will reload with this token, re-registering your
+            identity as admin.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            type="text"
+            placeholder="Paste the correct admin token here..."
+            value={customToken}
+            onChange={(e) => setCustomToken(e.target.value)}
+            data-ocid="admin.diagnostics.token_input"
+            className="font-mono text-xs"
+          />
+          <Button
+            onClick={applyCustomToken}
+            disabled={!customToken.trim() || savingToken}
+            data-ocid="admin.diagnostics.apply_token_button"
+            className="shrink-0 gap-2"
+          >
+            {savingToken ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Apply & Reload
+          </Button>
+        </div>
+      </div>
+
+      {/* Clear token */}
+      <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-5 space-y-3">
+        <p className="text-sm font-semibold text-foreground">
+          Clear Token & Reload
+        </p>
+        <p className="text-xs text-muted-foreground">
+          If the Caffeine platform provides the token via URL hash on page load,
+          clearing the stored token will force it to be re-read from the URL on
+          next navigation. Only use this if you are about to reload from a URL
+          that contains{" "}
+          <code className="font-mono">#caffeineAdminToken=...</code>.
+        </p>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={clearTokenAndReload}
+          data-ocid="admin.diagnostics.clear_token_button"
+          className="gap-2"
+        >
+          <Trash2 className="h-4 w-4" />
+          Clear Token & Reload
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Step 2: Internet Identity Login Gate ─── */
 
 function IILoginGate() {
@@ -2546,163 +2780,16 @@ function IILoginGate() {
   );
 }
 
-/* ─── Step 3: Admin Registration Gate ─── */
+/* ─── Step 3: Unauthorized Access Screen ─── */
 
-function AdminRegistrationGate() {
-  const { actor, isFetching: actorFetching } = useActorStatus();
-  const qc = useQueryClient();
-  const [activateError, setActivateError] = useState("");
-  const [activating, setActivating] = useState(false);
-  // Track whether the auto-activation already ran so we never fire it twice
-  const hasAutoFired = useRef(false);
-
-  const runActivation = async () => {
-    if (!actor) return;
-    setActivateError("");
-    setActivating(true);
-
-    try {
-      console.log(
-        "[AdminRegistrationGate] Calling _initializeAccessControlWithSecret",
-      );
-      // Call the backend directly — useActor already ran this once, so either:
-      //   (a) we are already admin → isCallerAdmin() returns true below
-      //   (b) we need to register → this call will register us
-      await (
-        actor as unknown as {
-          _initializeAccessControlWithSecret: (s: string) => Promise<void>;
-        }
-      )._initializeAccessControlWithSecret(CAFFEINE_ADMIN_TOKEN);
-      console.log(
-        "[AdminRegistrationGate] _initializeAccessControlWithSecret completed",
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const msgLower = msg.toLowerCase();
-      // "already registered" variants are fine — the principal is already in the canister
-      if (
-        !msgLower.includes("already") &&
-        !msgLower.includes("duplicate") &&
-        !msgLower.includes("initialized") &&
-        !msgLower.includes("access control") &&
-        !msgLower.includes("cannot call")
-      ) {
-        console.error("[AdminRegistrationGate] Unexpected error:", msg);
-        setActivating(false);
-        setActivateError(msg);
-        return;
-      }
-      console.log(
-        "[AdminRegistrationGate] Already registered (ok) — checking admin status",
-      );
-    }
-
-    // Now directly check isCallerAdmin() on the actor to avoid stale cache
-    try {
-      const isNowAdmin = await actor.isCallerAdmin();
-      console.log("[AdminRegistrationGate] isCallerAdmin() =", isNowAdmin);
-
-      if (isNowAdmin) {
-        // Force the query cache to reflect the confirmed admin status
-        qc.setQueryData(["isAdmin"], true);
-        await qc.invalidateQueries({ queryKey: ["isAdmin"] });
-      } else {
-        // Principal is registered but NOT admin — another user already took admin role
-        // or the wrong token was used in a previous session
-        setActivateError(
-          "This Internet Identity is already registered but does not have admin access. " +
-            "Only the first Internet Identity to activate admin gets full access. " +
-            "If you are the owner, please contact support or redeploy the canister.",
-        );
-      }
-    } catch (checkErr) {
-      const checkMsg =
-        checkErr instanceof Error ? checkErr.message : String(checkErr);
-      const isNotRegistered =
-        checkMsg.toLowerCase().includes("not registered") ||
-        checkMsg.toLowerCase().includes("user is not") ||
-        checkMsg.toLowerCase().includes("trap");
-      if (isNotRegistered) {
-        // The principal has no role yet — this happens when the backend rejected
-        // the token (e.g. wrong token). Surface a clear error.
-        setActivateError(
-          "Admin registration was rejected by the backend. " +
-            "The admin token may not match. Please contact support.",
-        );
-      } else {
-        setActivateError(checkMsg);
-      }
-    }
-
-    setActivating(false);
-  };
-
-  // Keep a ref to the latest runActivation so the effect closure is stable
-  const runActivationRef = useRef(runActivation);
-  runActivationRef.current = runActivation;
-
-  // Auto-trigger activation once the actor is ready (runs exactly once per mount)
-  useEffect(() => {
-    if (actor && !actorFetching && !hasAutoFired.current) {
-      hasAutoFired.current = true;
-      void runActivationRef.current();
-    }
-  }, [actor, actorFetching]);
-
-  // Show spinner while actor is building
-  if (actorFetching && !actor) {
-    return (
-      <DarkScreenWrapper>
-        <div
-          className="text-center py-8"
-          data-ocid="admin.connecting_loading_state"
-        >
-          <Loader2
-            className="h-10 w-10 animate-spin mx-auto mb-4"
-            style={{ color: "#4a9eff" }}
-          />
-          <p
-            className="text-sm font-medium"
-            style={{ color: "rgba(255,255,255,0.6)" }}
-          >
-            Connecting to backend canister...
-          </p>
-        </div>
-      </DarkScreenWrapper>
-    );
-  }
-
-  // Show spinner while activating
-  if (activating) {
-    return (
-      <DarkScreenWrapper>
-        <div
-          className="text-center py-8"
-          data-ocid="admin.activating_loading_state"
-        >
-          <Loader2
-            className="h-10 w-10 animate-spin mx-auto mb-4"
-            style={{ color: "#4a9eff" }}
-          />
-          <p
-            className="text-base font-semibold mb-1"
-            style={{ color: "#ffffff" }}
-          >
-            Activating admin access...
-          </p>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>
-            Registering your Internet Identity on the backend...
-          </p>
-        </div>
-      </DarkScreenWrapper>
-    );
-  }
+function UnauthorizedAccess() {
+  const { clear } = useInternetIdentity();
 
   return (
     <DarkScreenWrapper>
-      {/* Branding */}
-      <div className="text-center mb-6">
-        <div className="inline-flex items-center gap-2 mb-5">
+      <div className="text-center">
+        {/* Branding */}
+        <div className="inline-flex items-center gap-2 mb-6">
           <span
             className="text-2xl font-bold tracking-tight"
             style={{ color: "#ffffff" }}
@@ -2714,149 +2801,57 @@ function AdminRegistrationGate() {
           </span>
         </div>
 
+        {/* Icon */}
         <div
-          className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+          className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
           style={{
             background:
-              "linear-gradient(135deg, rgba(30,94,255,0.2), rgba(30,94,255,0.1))",
-            border: "1px solid rgba(30,94,255,0.3)",
-          }}
-        >
-          <ShieldCheck className="h-8 w-8" style={{ color: "#4a9eff" }} />
-        </div>
-
-        <h1
-          className="text-2xl font-bold mb-2"
-          style={{ color: "#ffffff", letterSpacing: "-0.02em" }}
-        >
-          Activate Admin Access
-        </h1>
-        <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-          First-time setup — register your Internet Identity as the permanent
-          admin.
-        </p>
-      </div>
-
-      {/* Actor not ready */}
-      {!actor && !actorFetching && (
-        <div
-          data-ocid="admin.actor_error_state"
-          className="mb-5 p-4 rounded-xl"
-          style={{
-            background: "rgba(234,179,8,0.08)",
-            border: "1px solid rgba(234,179,8,0.25)",
-          }}
-        >
-          <div className="flex items-start gap-2.5 mb-3">
-            <AlertCircle
-              className="h-4 w-4 shrink-0 mt-0.5"
-              style={{ color: "#fbbf24" }}
-            />
-            <div>
-              <p
-                className="text-sm font-semibold mb-0.5"
-                style={{ color: "#fbbf24" }}
-              >
-                Could not connect to the backend canister
-              </p>
-              <p className="text-xs" style={{ color: "rgba(251,191,36,0.8)" }}>
-                The actor failed to initialize. This may happen if the canister
-                is not yet deployed or the network is slow.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            data-ocid="admin.actor_retry_button"
-            onClick={() => {
-              hasAutoFired.current = false;
-              void qc.invalidateQueries({ queryKey: ["actor"] });
-              void qc.refetchQueries({ queryKey: ["actor"] });
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all w-full justify-center"
-            style={{
-              background: "rgba(234,179,8,0.15)",
-              border: "1px solid rgba(234,179,8,0.3)",
-              color: "#fbbf24",
-            }}
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry Connection
-          </button>
-        </div>
-      )}
-
-      {/* Activation error */}
-      {activateError && (
-        <div
-          data-ocid="admin.activation_error_state"
-          className="mb-5 p-4 rounded-xl"
-          style={{
-            background: "rgba(239,68,68,0.08)",
+              "linear-gradient(135deg, rgba(239,68,68,0.18), rgba(239,68,68,0.08))",
             border: "1px solid rgba(239,68,68,0.3)",
           }}
         >
-          <div className="flex items-start gap-2.5 mb-3">
-            <AlertCircle
-              className="h-4 w-4 shrink-0 mt-0.5"
-              style={{ color: "#f87171" }}
-            />
-            <div>
-              <p
-                className="text-sm font-semibold mb-0.5"
-                style={{ color: "#f87171" }}
-              >
-                Activation Failed
-              </p>
-              <p className="text-xs" style={{ color: "rgba(248,113,113,0.8)" }}>
-                {activateError}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            data-ocid="admin.activation_retry_button"
-            onClick={() => void runActivation()}
-            disabled={!actor}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all w-full justify-center"
-            style={{
-              background: "rgba(239,68,68,0.15)",
-              border: "1px solid rgba(239,68,68,0.3)",
-              color: "#f87171",
-              opacity: !actor ? 0.5 : 1,
-            }}
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry Activation
-          </button>
+          <ShieldOff className="h-8 w-8" style={{ color: "#f87171" }} />
         </div>
-      )}
 
-      {/* Manual activate button */}
-      {actor && !activating && (
+        <h1
+          className="text-2xl font-bold mb-3"
+          style={{ color: "#ffffff", letterSpacing: "-0.02em" }}
+        >
+          Unauthorized Admin Access
+        </h1>
+        <p
+          className="text-sm mb-2 leading-relaxed"
+          style={{ color: "rgba(255,255,255,0.55)" }}
+        >
+          Your Internet Identity does not have admin access to this dashboard.
+        </p>
+        <p className="text-xs mb-8" style={{ color: "rgba(255,255,255,0.35)" }}>
+          If you are the site owner, please ensure you are using the correct
+          Internet Identity account.
+        </p>
+
         <button
           type="button"
-          data-ocid="admin.activate_button"
-          onClick={() => void runActivation()}
+          data-ocid="admin.unauthorized_state"
+          onClick={() => void clear()}
           className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
           style={{
-            background: "linear-gradient(135deg, #1E5EFF, #3b7dff)",
-            color: "#ffffff",
-            boxShadow: "0 4px 20px rgba(30,94,255,0.4)",
+            background: "rgba(255,255,255,0.07)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            color: "rgba(255,255,255,0.85)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.07)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
           }}
         >
-          <ShieldCheck className="h-4 w-4" />
-          Activate Admin Access
+          Try Different Account
         </button>
-      )}
-
-      <p
-        className="text-center text-xs mt-4"
-        style={{ color: "rgba(255,255,255,0.35)" }}
-      >
-        This is a one-time setup. Once registered, future logins go straight to
-        the dashboard.
-      </p>
+      </div>
     </DarkScreenWrapper>
   );
 }
@@ -2868,15 +2863,16 @@ export function AdminPage() {
     () => sessionStorage.getItem("admin_auth") === "true",
   );
   const { identity, isInitializing } = useInternetIdentity();
-  const { isFetching: actorBuilding } = useActorStatus();
-  const { data: isAdmin, isLoading: isAdminLoading } = useIsAdmin();
+  // isAdmin is now a pure frontend principal comparison — no backend call,
+  // no activation step, no registration loop. Instant result.
+  const { data: isAdmin } = useIsAdmin();
 
   // Step 1: Password gate
   if (!passwordUnlocked) {
     return <PasswordGate onUnlock={() => setPasswordUnlocked(true)} />;
   }
 
-  // Step 2: Wait for II initialization, then require login
+  // Step 2: Wait for II initialization
   if (isInitializing) {
     return (
       <DarkScreenWrapper>
@@ -2898,56 +2894,17 @@ export function AdminPage() {
 
   const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
 
+  // Step 3: Not logged in yet
   if (!isConnected) {
     return <IILoginGate />;
   }
 
-  // Step 3: Actor still building after authentication — show brief spinner
-  if (actorBuilding) {
-    return (
-      <DarkScreenWrapper>
-        <div className="text-center py-8">
-          <Loader2
-            className="h-10 w-10 animate-spin mx-auto mb-4"
-            style={{ color: "#4a9eff" }}
-          />
-          <p
-            className="text-sm font-medium"
-            style={{ color: "rgba(255,255,255,0.6)" }}
-          >
-            Connecting to backend...
-          </p>
-        </div>
-      </DarkScreenWrapper>
-    );
-  }
-
-  // Step 4: Identity loaded — check admin status
-  if (isAdminLoading) {
-    return (
-      <DarkScreenWrapper>
-        <div className="text-center py-8">
-          <Loader2
-            className="h-10 w-10 animate-spin mx-auto mb-4"
-            style={{ color: "#4a9eff" }}
-          />
-          <p
-            className="text-sm font-medium"
-            style={{ color: "rgba(255,255,255,0.6)" }}
-          >
-            Verifying admin access...
-          </p>
-        </div>
-      </DarkScreenWrapper>
-    );
-  }
-
-  // Step 5: Not admin — show token entry gate
+  // Step 4: Logged in — check principal against hardcoded ADMIN_PRINCIPAL
   if (!isAdmin) {
-    return <AdminRegistrationGate />;
+    return <UnauthorizedAccess />;
   }
 
-  // Step 6: Authenticated admin — show dashboard
+  // Step 5: Authenticated admin — show dashboard
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
@@ -3020,6 +2977,14 @@ export function AdminPage() {
             <Mail className="h-4 w-4" />
             Newsletter
           </TabsTrigger>
+          <TabsTrigger
+            value="diagnostics"
+            className="gap-2"
+            data-ocid="admin.diagnostics_tab"
+          >
+            <Settings className="h-4 w-4" />
+            Diagnostics
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products">
@@ -3048,6 +3013,10 @@ export function AdminPage() {
 
         <TabsContent value="newsletter">
           <NewsletterTab />
+        </TabsContent>
+
+        <TabsContent value="diagnostics">
+          <BackendDiagnosticTab />
         </TabsContent>
       </Tabs>
     </main>

@@ -1,12 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Order, OrderItem, Product, ShoppingItem } from "../backend.d";
-import { CAFFEINE_ADMIN_TOKEN } from "../data/adminToken";
 import {
   type ProductWithMarketPrice,
   SAMPLE_PRODUCTS,
 } from "../data/sampleProducts";
 import { useActor } from "./useActor";
 import { useInternetIdentity } from "./useInternetIdentity";
+// ADMIN_PRINCIPAL is the single source of truth for admin access.
+// Both frontend (useIsAdmin) and backend (requireAdmin) enforce this principal.
+
+// Fixed admin principal — only this Internet Identity has admin access.
+// This is the single source of truth. The backend also enforces this check,
+// but we check it here on the frontend for an instant, reliable UI response.
+const ADMIN_PRINCIPAL =
+  "vskq2-fm4vs-oevhw-w2rde-gjtdr-meufs-rlfw3-jjij6-iuo24-xrmd3-xae";
 
 /* ─── Products ─── */
 
@@ -97,20 +104,37 @@ export function useAddProduct() {
         );
       }
       console.log("[useAddProduct] Adding product to backend:", data.name);
-      await actor.addProduct(
-        data.name,
-        data.brand,
-        data.processor,
-        data.ram,
-        data.storage,
-        data.condition,
-        data.price,
-        data.discountPrice,
-        data.description,
-        data.stock,
-        data.imageUrl,
-      );
-      console.log("[useAddProduct] Product added successfully:", data.name);
+      try {
+        await actor.addProduct(
+          data.name,
+          data.brand,
+          data.processor,
+          data.ram,
+          data.storage,
+          data.condition,
+          data.price,
+          data.discountPrice,
+          data.description,
+          data.stock,
+          data.imageUrl,
+        );
+        console.log("[useAddProduct] Product added successfully:", data.name);
+      } catch (err) {
+        console.error("[useAddProduct] Backend call failed:", err);
+        const msg = err instanceof Error ? err.message : String(err);
+        if (
+          msg.includes("Unauthorized") ||
+          msg.includes("not registered") ||
+          msg.includes("User is not registered")
+        ) {
+          throw new Error(
+            "Backend rejected: your identity is not registered as admin. " +
+              "The canister may have registered your principal as a non-admin from a previous session. " +
+              "Go to Admin → Diagnostics → Clear Token & Reload, then log in again.",
+          );
+        }
+        throw err;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
@@ -240,120 +264,26 @@ export function useUpdateOrderStatus() {
 /* ─── Auth / Admin ─── */
 
 export function useIsAdmin() {
-  const { actor, isFetching } = useActor();
-  const { identity } = useInternetIdentity();
+  const { identity, isInitializing } = useInternetIdentity();
   const isConnected = !!identity && !identity.getPrincipal().isAnonymous();
+
   return useQuery<boolean>({
-    queryKey: ["isAdmin"],
-    queryFn: async () => {
-      if (!actor || !isConnected) return false;
-      const principal = identity?.getPrincipal().toString();
-      console.log(
-        "[useIsAdmin] Internet Identity login success — principal:",
-        principal,
-      );
-      console.log(
-        "[useIsAdmin] Actor created successfully — checking admin status on backend",
-      );
-      try {
-        const result = await actor.isCallerAdmin();
-        console.log(
-          "[useIsAdmin] Backend connection success — isAdmin:",
-          result,
-        );
-        return result;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        // The canister traps with "User is not registered" when the principal
-        // has never called _initializeAccessControlWithSecret.
-        // Treat this as "not admin yet" rather than a hard error so the
-        // AdminRegistrationGate can proceed with activation.
-        if (
-          msg.toLowerCase().includes("not registered") ||
-          msg.toLowerCase().includes("user is not") ||
-          msg.toLowerCase().includes("trap")
-        ) {
-          console.log(
-            "[useIsAdmin] Principal not yet registered — returning false (will proceed to activation)",
-          );
-          return false;
-        }
-        console.error("[useIsAdmin] Unexpected error:", err);
+    queryKey: ["isAdmin", identity?.getPrincipal().toString()],
+    queryFn: () => {
+      if (!isConnected || !identity) {
+        console.log("[useIsAdmin] No authenticated identity — not admin");
         return false;
       }
+      const principal = identity.getPrincipal().toString();
+      console.log("[useIsAdmin] Checking principal:", principal);
+      const result = principal === ADMIN_PRINCIPAL;
+      console.log("[useIsAdmin] Principal matches ADMIN_PRINCIPAL:", result);
+      return result;
     },
-    enabled: !isFetching && isConnected && !!actor,
-    retry: false,
-  });
-}
-
-export function useActivateAdmin() {
-  const { actor } = useActor();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async () => {
-      if (!actor) {
-        console.error(
-          "[useActivateAdmin] Actor is null — backend not connected yet",
-        );
-        throw new Error(
-          "Not connected to backend canister. Please wait a moment and try again.",
-        );
-      }
-
-      console.log(
-        "[useActivateAdmin] Calling _initializeAccessControlWithSecret with token:",
-        `${CAFFEINE_ADMIN_TOKEN.slice(0, 8)}...`,
-      );
-
-      try {
-        const actorAny = actor as unknown as {
-          _initializeAccessControlWithSecret: (secret: string) => Promise<void>;
-        };
-        await actorAny._initializeAccessControlWithSecret(CAFFEINE_ADMIN_TOKEN);
-        console.log(
-          "[useActivateAdmin] Admin registration succeeded — principal is now admin",
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        const msgLower = msg.toLowerCase();
-
-        console.warn(
-          "[useActivateAdmin] _initializeAccessControlWithSecret threw:",
-          msg,
-        );
-
-        // These are all "already registered" variants — NOT a real error.
-        // The canister is already initialized; the first admin is registered.
-        if (
-          msgLower.includes("already") ||
-          msgLower.includes("duplicate") ||
-          msgLower.includes("initialized") ||
-          msgLower.includes("access control") ||
-          msgLower.includes("cannot call") ||
-          msgLower.includes("not authorized") ||
-          msgLower.includes("access denied")
-        ) {
-          console.log(
-            "[useActivateAdmin] Access control already initialized — treating as success (admin already registered)",
-          );
-          return; // success path
-        }
-
-        // Real error — re-throw so the UI can show it
-        throw err;
-      }
-    },
-    onSuccess: () => {
-      console.log(
-        "[useActivateAdmin] Activation complete — refreshing admin status",
-      );
-      void qc.invalidateQueries({ queryKey: ["isAdmin"] });
-      void qc.refetchQueries({ queryKey: ["isAdmin"] });
-    },
-    onError: (err) => {
-      console.error("[useActivateAdmin] Admin activation failed:", err);
-    },
+    // Only run once identity has finished initializing
+    enabled: !isInitializing,
+    // Result is stable for the lifetime of the identity
+    staleTime: Number.POSITIVE_INFINITY,
   });
 }
 

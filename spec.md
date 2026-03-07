@@ -2,23 +2,55 @@
 
 ## Current State
 
-The Motoko backend has a fresh `initState()` with `adminAssigned = false` and an empty `userRoles` map. The backend is being redeployed, which wipes all stored state (no registered users or admins). The frontend has a multi-step admin login: password gate → Internet Identity login → actor build → `_initializeAccessControlWithSecret(token)` → admin check → dashboard.
+The app is a refurbished electronics marketplace with a Motoko backend and React frontend.
 
-The persistent failure has been that `useActor.ts` calls `_initializeAccessControlWithSecret(getSecretParameter("caffeineAdminToken"))` during every authenticated actor build. If `sessionStorage` had no value for `caffeineAdminToken`, the token was empty string `""`, causing the backend to register the principal as a regular user (not admin), and then `useActivateAdmin` firing later could not override an already-registered principal.
+**Backend problems:**
+- `authorization/access-control.mo` maintains a HashMap of `Principal → #admin | #user | #guest` roles
+- `authorization/MixinAuthorization.mo` exposes `_initializeAccessControlWithSecret(token)` which registers the first caller as admin if they provide the right token
+- `useActor.ts` (platform-protected) calls `_initializeAccessControlWithSecret(adminToken)` on every actor build
+- The admin token comes from `sessionStorage["caffeineAdminToken"]` which is never reliably populated, so it sends `""` and registers the principal as `#user` instead of `#admin`
+- This causes all `addProduct`, `updateProduct`, `deleteProduct`, `updateOrderStatus`, `setStripeConfiguration` calls to fail with "Unauthorized"
+- The role conflict between frontend principal comparison and backend role registry causes the endless activation loop
+
+**Frontend problems:**
+- Complex activation flow (password → II → activate admin → token injection) that never works reliably
+- Token seeding logic in `main.tsx` and `adminToken.ts` that bypasses session state issues but doesn't fix the root cause
+- Frontend already correctly checks `callerPrincipal === ADMIN_PRINCIPAL` in `useIsAdmin`
 
 ## Requested Changes (Diff)
 
 ### Add
-- Token seeding in `main.tsx`: at app startup, before any React renders, seed `CAFFEINE_ADMIN_TOKEN` from `adminToken.ts` into `sessionStorage["caffeineAdminToken"]` if not already set. This ensures `useActor.ts` always reads the correct token and passes it to `_initializeAccessControlWithSecret`.
+- Fixed `ADMIN_PRINCIPAL` constant in `main.mo` using `Principal.fromText("vskq2-fm4vs-oevhw-w2rde-gjtdr-meufs-rlfw3-jjij6-iuo24-xrmd3-xae")`
+- Private `requireAdmin(caller)` helper function that throws `Error.reject("Unauthorized Admin Access")` if caller != ADMIN_PRINCIPAL
+- `isCallerAdmin()` query that returns `caller == ADMIN_PRINCIPAL` directly
 
 ### Modify
-- `main.tsx`: add token seed block before `ReactDOM.createRoot`.
+- `main.mo`: replace all `AccessControl.hasPermission(...)` checks with `requireAdmin(msg.caller)` on all admin functions
+- `main.mo`: remove `import AccessControl` and `import MixinAuthorization` — no longer needed
+- `main.mo`: remove `let accessControlState = AccessControl.initState()` and `include MixinAuthorization(accessControlState)`
+- `main.mo`: replace array-based product storage with `HashMap<Nat, Product>` and `getProducts` returns `Iter.toArray(products.vals())`
+- Frontend `AdminPage.tsx`: remove the multi-step activation gate; admin flow = password → II login → principal comparison → dashboard
+- Frontend `useQueries.ts`: remove all token/activation code from `useAddProduct`; it already calls `actor.addProduct(...)` correctly
+- Frontend `main.tsx`: remove all `sessionStorage` token seeding
+- Frontend `adminToken.ts`: remove (no longer used)
 
 ### Remove
-- Nothing removed from the UI or backend.
+- `authorization/access-control.mo` — entire file
+- `authorization/MixinAuthorization.mo` — entire file
+- All references to `_initializeAccessControlWithSecret`, `assignCallerUserRole`, `getCallerUserRole`, `hasPermission`, role HashMaps, `#admin`/`#user` roles, activation tokens
 
 ## Implementation Plan
 
-1. Seed token in `main.tsx` so `getSecretParameter("caffeineAdminToken")` always returns the correct value before any actor is built.
-2. Redeploy both backend (fresh canister, zero state) and frontend.
-3. After deployment: first II login → actor builds with correct token → `_initializeAccessControlWithSecret(token)` registers principal as admin → `isCallerAdmin()` returns true → dashboard opens.
+1. Regenerate the Motoko backend with:
+   - Fixed `ADMIN_PRINCIPAL` constant
+   - `requireAdmin(caller)` private helper
+   - `isCallerAdmin()` query returning `caller == ADMIN_PRINCIPAL`
+   - All product/order/stripe admin functions using `requireAdmin(msg.caller)` exclusively
+   - HashMap-based product storage
+   - No authorization module, no mixin, no token-based registration
+
+2. Update frontend:
+   - Clean up `AdminPage.tsx`: remove activation gate, keep password → II → dashboard (principal comparison already in `useIsAdmin`)
+   - Clean up `useQueries.ts` `useAddProduct`: remove token diagnostics, keep the `actor.addProduct(...)` call
+   - Remove `adminToken.ts` and token seeding from `main.tsx`
+   - The `useActor.ts` (platform-protected) still calls `_initializeAccessControlWithSecret` — since the backend no longer has this method, the call will fail silently but the actor itself will still be created and all other methods will work. The frontend must not depend on this call succeeding.

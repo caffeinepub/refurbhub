@@ -197,10 +197,7 @@ actor {
     items : [OrderItem],
     total : Float,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can create orders");
-    };
-
+    // Open access - anyone can place an order (no authentication required)
     let order : Order = {
       id = orderIdCounter;
       customerName;
@@ -280,6 +277,7 @@ actor {
   };
 
   public shared ({ caller }) func createCheckoutSession(items : [Stripe.ShoppingItem], successUrl : Text, cancelUrl : Text) : async Text {
+    // Open access - anyone can create a checkout session
     await Stripe.createCheckoutSession(getStripeConfiguration(), caller, items, successUrl, cancelUrl, transform);
   };
 
