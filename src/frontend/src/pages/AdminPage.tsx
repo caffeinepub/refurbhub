@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Bot,
@@ -522,12 +523,77 @@ function ProductFormDialog({
   );
 }
 
+function BackendReconnectBanner() {
+  const qc = useQueryClient();
+  const { actor, isFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
+  const [reconnecting, setReconnecting] = useState(false);
+
+  // Only show when: authenticated, actor is null, not currently fetching
+  if (!isAuthenticated || actor || isFetching) return null;
+
+  const handleReconnect = async () => {
+    setReconnecting(true);
+    // Always re-seed the correct token before retrying
+    const { CAFFEINE_ADMIN_TOKEN: token } = await import("../data/adminToken");
+    sessionStorage.setItem("caffeineAdminToken", token);
+    console.log(
+      "[BackendReconnectBanner] Token re-seeded, removing cached actor query",
+    );
+    // Remove cached query (including error state) and refetch fresh
+    qc.removeQueries({ queryKey: ["actor"] });
+    await qc.refetchQueries({ queryKey: ["actor"] });
+    setReconnecting(false);
+  };
+
+  return (
+    <div
+      data-ocid="admin.backend_reconnect_banner"
+      className="flex items-center gap-3 rounded-xl px-4 py-3 mb-4 text-sm"
+      style={{
+        background: "rgba(234,179,8,0.08)",
+        border: "1px solid rgba(234,179,8,0.25)",
+        color: "#ca8a04",
+      }}
+    >
+      <WifiOff className="h-4 w-4 shrink-0" />
+      <span className="flex-1">
+        Backend connection failed. The actor could not be initialized. This may
+        be a temporary network issue.
+      </span>
+      <button
+        type="button"
+        data-ocid="admin.backend_reconnect_button"
+        onClick={() => void handleReconnect()}
+        disabled={reconnecting}
+        className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+        style={{
+          background: "rgba(234,179,8,0.15)",
+          border: "1px solid rgba(234,179,8,0.35)",
+          color: "#ca8a04",
+          cursor: reconnecting ? "not-allowed" : "pointer",
+        }}
+      >
+        {reconnecting ? (
+          <span className="flex items-center gap-1.5">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Reconnecting...
+          </span>
+        ) : (
+          "Retry Connection"
+        )}
+      </button>
+    </div>
+  );
+}
+
 function ProductsTab() {
   const { data: products = [], isLoading } = useAdminProducts();
   const addProduct = useAddProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
-  const { actor } = useActor();
+  const { actor, isFetching: actorFetching } = useActor();
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -586,6 +652,7 @@ function ProductsTab() {
 
   return (
     <div className="space-y-4">
+      <BackendReconnectBanner />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <p className="text-sm text-muted-foreground">
@@ -600,9 +667,16 @@ function ProductsTab() {
               Backend connected
             </span>
           )}
+          {actorFetching && !actor && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Connecting...
+            </span>
+          )}
         </div>
         <Button
           onClick={() => setShowAddDialog(true)}
+          disabled={actorFetching && !actor}
           data-ocid="admin.add_product_button"
           className="gap-2"
         >
@@ -2479,17 +2553,43 @@ function BackendDiagnosticTab() {
         );
       } else {
         setTestResult(
-          "⚠️ Backend says you are NOT admin. This means your principal is registered as #user in the canister role map. " +
-            "The token sent during actor initialization did not match CAFFEINE_ADMIN_TOKEN, or the canister already had your principal as #user from a previous session. " +
-            "To fix: contact support to redeploy the canister with clean state.",
+          "⚠️ Backend says you are NOT admin. Your principal was likely registered as #user " +
+            "in a previous session when the wrong token was used. " +
+            "Click 'Force Re-register as Admin' below to clear the stored token and reload. " +
+            "On next login, the correct token will be used and you will be registered as admin.",
         );
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setTestResult(`❌ Backend call failed: ${msg}`);
+      // "User is not registered" means the role map doesn't have this principal yet.
+      // That's fine — it means _initializeAccessControlWithSecret hasn't been called yet.
+      // It will be called when the actor builds after login.
+      if (msg.includes("not registered")) {
+        setTestResult(
+          "ℹ️ Principal not yet registered in role map. " +
+            "This is expected if you have not completed a full login cycle since the last deployment. " +
+            "Log out and log back in — the actor build will register you with the correct token.",
+        );
+      } else {
+        setTestResult(`❌ Backend call failed: ${msg}`);
+      }
     } finally {
       setTesting(false);
     }
+  };
+
+  const forceReRegister = () => {
+    // Remove old token so main.tsx seeds the correct one on next load
+    sessionStorage.removeItem("caffeineAdminToken");
+    // Immediately seed the correct token from adminToken.ts
+    import("../data/adminToken").then(({ CAFFEINE_ADMIN_TOKEN }) => {
+      sessionStorage.setItem("caffeineAdminToken", CAFFEINE_ADMIN_TOKEN);
+      console.log(
+        "[Diagnostics] Force re-seeded token:",
+        `${CAFFEINE_ADMIN_TOKEN.slice(0, 8)}...`,
+      );
+      window.location.reload();
+    });
   };
 
   const applyCustomToken = () => {
@@ -2598,6 +2698,29 @@ function BackendDiagnosticTab() {
             {testResult}
           </div>
         )}
+      </div>
+
+      {/* Force re-register */}
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground mb-1">
+            Force Re-register as Admin
+          </p>
+          <p className="text-xs text-muted-foreground">
+            If the backend says you are NOT admin, your principal was registered
+            as a regular user in a previous session. Use this button to clear
+            the stored token and reload. On next login, you will be
+            re-registered as admin using the correct token.
+          </p>
+        </div>
+        <Button
+          onClick={forceReRegister}
+          data-ocid="admin.diagnostics.force_reregister_button"
+          className="gap-2"
+        >
+          <UserCheck className="h-4 w-4" />
+          Force Re-register as Admin
+        </Button>
       </div>
 
       {/* Custom token override */}
@@ -2863,9 +2986,12 @@ export function AdminPage() {
     () => sessionStorage.getItem("admin_auth") === "true",
   );
   const { identity, isInitializing } = useInternetIdentity();
+  const { actor, isFetching: actorFetching } = useActor();
+  const qc = useQueryClient();
   // isAdmin is now a pure frontend principal comparison — no backend call,
   // no activation step, no registration loop. Instant result.
   const { data: isAdmin } = useIsAdmin();
+  const [actorRetrying, setActorRetrying] = useState(false);
 
   // Step 1: Password gate
   if (!passwordUnlocked) {
@@ -2904,7 +3030,128 @@ export function AdminPage() {
     return <UnauthorizedAccess />;
   }
 
-  // Step 5: Authenticated admin — show dashboard
+  // Step 5: Actor is still loading after authentication
+  if (actorFetching && !actor) {
+    return (
+      <DarkScreenWrapper>
+        <div className="text-center py-8">
+          <Loader2
+            className="h-10 w-10 animate-spin mx-auto mb-4"
+            style={{ color: "#4a9eff" }}
+          />
+          <p
+            className="text-sm font-medium mb-1"
+            style={{ color: "rgba(255,255,255,0.6)" }}
+          >
+            Connecting to backend...
+          </p>
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+            Building authenticated actor
+          </p>
+        </div>
+      </DarkScreenWrapper>
+    );
+  }
+
+  // Step 6: Actor failed to build — show reconnect option
+  if (!actor && !actorFetching && isConnected) {
+    const handleRetry = async () => {
+      setActorRetrying(true);
+      // Re-seed the token in case it was lost or never set
+      const { CAFFEINE_ADMIN_TOKEN: token } = await import(
+        "../data/adminToken"
+      );
+      sessionStorage.setItem("caffeineAdminToken", token);
+      console.log(
+        "[AdminPage] Retrying actor build with token:",
+        `${token.slice(0, 8)}...`,
+      );
+      // Remove all cached actor queries (including error state) before refetching
+      qc.removeQueries({ queryKey: ["actor"] });
+      await qc.refetchQueries({ queryKey: ["actor"] });
+      setActorRetrying(false);
+    };
+
+    return (
+      <DarkScreenWrapper>
+        <div className="text-center">
+          <div
+            className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(234,179,8,0.18), rgba(234,179,8,0.08))",
+              border: "1px solid rgba(234,179,8,0.3)",
+            }}
+          >
+            <WifiOff className="h-8 w-8" style={{ color: "#fbbf24" }} />
+          </div>
+          <h1
+            className="text-xl font-bold mb-3"
+            style={{ color: "#ffffff", letterSpacing: "-0.02em" }}
+          >
+            Backend Connection Failed
+          </h1>
+          <p
+            className="text-sm mb-2 leading-relaxed"
+            style={{ color: "rgba(255,255,255,0.55)" }}
+          >
+            The backend actor could not be initialized after login.
+          </p>
+          <p
+            className="text-xs mb-8"
+            style={{ color: "rgba(255,255,255,0.35)" }}
+          >
+            Your Internet Identity is authenticated. This is a backend
+            connectivity issue.
+          </p>
+          <button
+            type="button"
+            data-ocid="admin.actor_retry_button"
+            onClick={() => void handleRetry()}
+            disabled={actorRetrying}
+            className="w-full h-12 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 mb-3"
+            style={{
+              background: actorRetrying
+                ? "rgba(30,94,255,0.5)"
+                : "linear-gradient(135deg, #1E5EFF, #3b7dff)",
+              color: "#ffffff",
+              boxShadow: actorRetrying
+                ? "none"
+                : "0 4px 20px rgba(30,94,255,0.4)",
+              cursor: actorRetrying ? "not-allowed" : "pointer",
+            }}
+          >
+            {actorRetrying ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Retrying...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                Retry Backend Connection
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="w-full h-10 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2"
+            style={{
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.15)",
+              color: "rgba(255,255,255,0.7)",
+              cursor: "pointer",
+            }}
+          >
+            Reload Page
+          </button>
+        </div>
+      </DarkScreenWrapper>
+    );
+  }
+
+  // Step 7: Authenticated admin — show dashboard
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">

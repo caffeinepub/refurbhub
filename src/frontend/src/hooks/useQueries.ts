@@ -98,9 +98,10 @@ export function useAddProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Omit<Product, "id" | "createdAt">) => {
+      console.log("[useAddProduct] Actor state:", actor ? "ready" : "null");
       if (!actor) {
         throw new Error(
-          "Not connected to backend. Please log in with Internet Identity first.",
+          "Backend actor not initialized. Please ensure you are logged in with Internet Identity.",
         );
       }
       console.log("[useAddProduct] Adding product to backend:", data.name);
@@ -128,9 +129,9 @@ export function useAddProduct() {
           msg.includes("User is not registered")
         ) {
           throw new Error(
-            "Backend rejected: your identity is not registered as admin. " +
-              "The canister may have registered your principal as a non-admin from a previous session. " +
-              "Go to Admin → Diagnostics → Clear Token & Reload, then log in again.",
+            "Backend rejected: your principal is not registered as admin. " +
+              "This can happen if a previous session registered you as a regular user with the wrong token. " +
+              "Please contact the site owner to reset canister state, or try logging out and back in.",
           );
         }
         throw err;
@@ -148,9 +149,10 @@ export function useUpdateProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Product) => {
+      console.log("[useUpdateProduct] Actor state:", actor ? "ready" : "null");
       if (!actor) {
         throw new Error(
-          "Not connected to backend. Please log in with Internet Identity first.",
+          "Backend actor not initialized. Please ensure you are logged in with Internet Identity.",
         );
       }
       console.log(
@@ -189,9 +191,10 @@ export function useDeleteProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: bigint) => {
+      console.log("[useDeleteProduct] Actor state:", actor ? "ready" : "null");
       if (!actor) {
         throw new Error(
-          "Not connected to backend. Please log in with Internet Identity first.",
+          "Backend actor not initialized. Please ensure you are logged in with Internet Identity.",
         );
       }
       console.log(
